@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "QR-based koperasi AGM shareholder attendance system (MySQL + Prisma)",
   "scripts": {
-    "start": "prisma migrate deploy && node backend/server.js",
+    "start": "node backend/server.js",
     "postinstall": "prisma generate",
     "dev": "node backend/server.js",
     "migrate": "prisma migrate dev",
