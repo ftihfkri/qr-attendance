@@ -13,7 +13,11 @@ cd /var/www/html
 [ -f .env ] || touch .env
 
 # Generate an app key if none was provided (non-fatal).
+# key:generate only *replaces* an existing APP_KEY= line, so make sure one
+# exists in .env first — otherwise the generated key is never persisted and
+# every request 500s with "No application encryption key has been specified".
 if [ -z "$APP_KEY" ]; then
+  grep -q '^APP_KEY=' .env 2>/dev/null || echo 'APP_KEY=' >> .env
   php artisan key:generate --force || echo "[start.sh] WARN: key:generate failed"
 fi
 
