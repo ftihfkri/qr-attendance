@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Admins</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-3xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Manage Admins</h1>
+            <div class="flex gap-2">
+                <a href="qr-scanner.html" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300">QR & List</a>
+                <button id="logoutBtn" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300">Logout</button>
+            </div>
+        </div>
+
+        <!-- Add / update form -->
+        <div class="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 class="text-lg font-semibold mb-1">Add admin or change password</h2>
+            <p class="text-xs text-gray-500 mb-4">Enter an existing username to change its password, or a new username to create an admin. Min 6 characters.</p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Username</label>
+                    <input id="username" class="w-full p-2 border border-gray-300 rounded" autocomplete="off">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Password</label>
+                    <input id="password" type="password" class="w-full p-2 border border-gray-300 rounded" autocomplete="new-password">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Role</label>
+                    <select id="role" class="w-full p-2 border border-gray-300 rounded">
+                        <option value="staff">staff</option>
+                        <option value="admin">admin</option>
+                    </select>
+                </div>
+                <button id="saveBtn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Save</button>
+            </div>
+            <div id="msg" class="text-sm mt-3"></div>
+        </div>
+
+        <!-- List -->
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-lg font-semibold mb-4">Admin users</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full border border-gray-300 text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-3 py-2 border text-left">ID</th>
+                            <th class="px-3 py-2 border text-left">Username</th>
+                            <th class="px-3 py-2 border text-left">Role</th>
+                            <th class="px-3 py-2 border text-left">Created</th>
+                            <th class="px-3 py-2 border text-left">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersBody" class="bg-white"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const adminToken = localStorage.getItem('adminToken');
+        if (!adminToken) window.location.href = 'login.html';
+        const authHeader = { Authorization: `Bearer ${adminToken}` };
+
+        // Admin-only page: bounce staff away (the API also enforces this).
+        fetch('/api/admin/me', { headers: authHeader })
+            .then(r => r.json())
+            .then(({ data }) => {
+                if (!data || data.role !== 'admin') {
+                    alert('Admin access only.');
+                    window.location.href = 'qr-scanner.html';
+                }
+            })
+            .catch(() => {});
+
+        function handleAuthError(status) {
+            if (status === 401) { localStorage.removeItem('adminToken'); window.location.href = 'login.html'; return true; }
+            return false;
+        }
+
+        function showMsg(text, ok) {
+            const el = document.getElementById('msg');
+            el.textContent = text;
+            el.className = `text-sm mt-3 ${ok ? 'text-green-600' : 'text-red-600'}`;
+        }
+
+        async function loadUsers() {
+            const res = await fetch('/api/admin/users', { headers: authHeader });
+            if (handleAuthError(res.status)) return;
+            const { data } = await res.json();
+            const body = document.getElementById('usersBody');
+            body.innerHTML = data.map(u => `
+                <tr>
+                    <td class="px-3 py-2 border">${u.id}</td>
+                    <td class="px-3 py-2 border">${u.username}</td>
+                    <td class="px-3 py-2 border">${u.role}</td>
+                    <td class="px-3 py-2 border">${new Date(u.createdAt).toLocaleDateString()}</td>
+                    <td class="px-3 py-2 border">
+                        <button data-id="${u.id}" data-name="${u.username}" class="del-btn text-red-500 hover:underline">Delete</button>
+                    </td>
+                </tr>`).join('');
+            body.querySelectorAll('.del-btn').forEach(btn => btn.addEventListener('click', () => deleteUser(btn.dataset.id, btn.dataset.name)));
+        }
+
+        async function saveUser() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            if (!username || !password) { showMsg('Enter a username and password.', false); return; }
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { ...authHeader, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role })
+                });
+                if (handleAuthError(res.status)) return;
+                const data = await res.json();
+                if (!res.ok) { showMsg(data.message || 'Failed', false); return; }
+                showMsg(`Saved admin '${data.data.username}'.`, true);
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                await loadUsers();
+            } catch (e) { showMsg('Request failed.', false); }
+            finally { btn.disabled = false; }
+        }
+
+        async function deleteUser(id, name) {
+            if (!confirm(`Delete admin '${name}'?`)) return;
+            const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: authHeader });
+            if (handleAuthError(res.status)) return;
+            const data = await res.json();
+            if (!res.ok) { showMsg(data.message || 'Failed to delete', false); return; }
+            showMsg(`Deleted '${name}'.`, true);
+            await loadUsers();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('saveBtn').addEventListener('click', saveUser);
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                try { await fetch('/api/admin/logout', { method: 'POST', headers: authHeader }); } catch (e) {}
+                localStorage.removeItem('adminToken');
+                window.location.href = 'login.html';
+            });
+            loadUsers();
+        });
+    </script>
+</body>
+</html>

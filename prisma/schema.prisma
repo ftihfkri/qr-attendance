@@ -1,0 +1,104 @@
+// Prisma schema for the Koperasi AGM Attendance System (MySQL).
+// Generate client:  npx prisma generate
+// Create tables:    npx prisma migrate dev --name init
+// Seed sample data: npx prisma db seed
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Admin users (login). Passwords are stored as bcrypt hashes, never plaintext.
+// Create one with:  npm run create-admin -- <username> <password>
+// ---------------------------------------------------------------------------
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   @default("admin")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Core AGM domain
+// ---------------------------------------------------------------------------
+
+model Shareholder {
+  id           Int          @id @default(autoincrement())
+  name         String
+  koperasiId   String       @unique @map("koperasi_id")
+  phoneNumber  String       @map("phone_number")
+  email        String?
+  address      String?      @db.Text
+  registeredAt DateTime     @default(now()) @map("registered_at")
+  attendances  Attendance[]
+
+  @@map("shareholders")
+}
+
+model Meeting {
+  id           Int          @id @default(autoincrement())
+  title        String
+  meetingDate  DateTime     @map("meeting_date")
+  venueName    String?      @map("venue_name")
+  venueLat     Float?       @map("venue_lat")
+  venueLng     Float?       @map("venue_lng")
+  radiusMeters Int          @default(100) @map("radius_meters")
+  isActive     Boolean      @default(false) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  attendances  Attendance[]
+
+  @@index([isActive])
+  @@map("meetings")
+}
+
+model Attendance {
+  id                Int         @id @default(autoincrement())
+  meetingId         Int         @map("meeting_id")
+  meeting           Meeting     @relation(fields: [meetingId], references: [id])
+  shareholderId     Int         @map("shareholder_id")
+  shareholder       Shareholder @relation(fields: [shareholderId], references: [id])
+  koperasiId        String      @map("koperasi_id") // denormalized for fast queries
+  name              String
+  phoneNumber       String      @map("phone_number")
+  date              String // "YYYY-MM-DD" — kept for date-range queries
+  time              String
+  locationLat       Float       @map("location_lat")
+  locationLng       Float       @map("location_lng")
+  deviceFingerprint String      @map("device_fingerprint")
+  status            String      @default("present")
+  distanceFromVenue Float?      @map("distance_from_venue")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  @@unique([meetingId, koperasiId]) // one check-in per shareholder per meeting
+  @@unique([meetingId, deviceFingerprint]) // one check-in per device per meeting
+  @@index([koperasiId, date])
+  @@map("attendance")
+}
+
+// ---------------------------------------------------------------------------
+// Admin sessions (token-based admin login).
+// ---------------------------------------------------------------------------
+
+model AdminSession {
+  id        Int      @id @default(autoincrement())
+  adminId   Int?     @map("admin_id")
+  token     String
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_sessions")
+}
+

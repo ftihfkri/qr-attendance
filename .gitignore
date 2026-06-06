@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Environment / secrets — set these in the Railway dashboard, never commit them
+.env
+.env.*
+!.env.example
+
+# Runtime-generated QR images (any location)
+**/public/qrcodes/
+
+# Leftover MongoDB data + logs (project uses MySQL now)
+data/
+log/
+
+# Logs / OS
+*.log
+.DS_Store

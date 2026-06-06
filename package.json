@@ -1,0 +1,23 @@
+{
+  "name": "koperasi-agm-attendance",
+  "version": "1.0.0",
+  "description": "QR-based koperasi AGM shareholder attendance system (MySQL + Prisma)",
+  "scripts": {
+    "start": "prisma migrate deploy && node backend/server.js",
+    "postinstall": "prisma generate",
+    "dev": "node backend/server.js",
+    "migrate": "prisma migrate dev",
+    "generate": "prisma generate",
+    "seed": "prisma db seed",
+    "studio": "prisma studio",
+    "create-admin": "node backend/create-admin.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "dotenv": "^16.4.7",
+    "prisma": "^6.19.3"
+  }
+}
