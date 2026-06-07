@@ -63,10 +63,11 @@
     <!-- Manual add -->
     <div class="bg-white p-4 rounded-lg shadow mt-6">
         <h2 class="text-lg font-semibold mb-3">Manual Check-In</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
             <div><label class="block text-xs text-gray-600 mb-1">Koperasi ID</label><input id="m_koperasi" class="w-full p-2 border border-gray-300 rounded"></div>
             <div><label class="block text-xs text-gray-600 mb-1">Name</label><input id="m_name" class="w-full p-2 border border-gray-300 rounded"></div>
             <div><label class="block text-xs text-gray-600 mb-1">Phone</label><input id="m_phone" class="w-full p-2 border border-gray-300 rounded"></div>
+            <div><label class="block text-xs text-gray-600 mb-1">Email</label><input id="m_email" type="email" class="w-full p-2 border border-gray-300 rounded"></div>
             <button id="manualBtn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Check In</button>
         </div>
         <div id="manualMsg" class="text-sm mt-2"></div>
@@ -142,12 +143,13 @@
         const koperasi_id = document.getElementById('m_koperasi').value.trim();
         const name = document.getElementById('m_name').value.trim();
         const phone_number = document.getElementById('m_phone').value.trim();
-        if (!koperasi_id || !name || !phone_number) { msg.textContent = 'Fill all fields.'; msg.className = 'text-sm mt-2 text-red-600'; return; }
-        const res = await window.apiFetch('/admin/manual', { method: 'POST', body: JSON.stringify({ koperasi_id, name, phone_number }) });
+        const email = document.getElementById('m_email').value.trim();
+        if (!koperasi_id || !name || !phone_number || !email) { msg.textContent = 'Fill all fields (including email).'; msg.className = 'text-sm mt-2 text-red-600'; return; }
+        const res = await window.apiFetch('/admin/manual', { method: 'POST', body: JSON.stringify({ koperasi_id, name, phone_number, email }) });
         const data = await res.json();
         if (!res.ok) { msg.textContent = data.message || 'Failed'; msg.className = 'text-sm mt-2 text-red-600'; return; }
         msg.textContent = name + ' added.'; msg.className = 'text-sm mt-2 text-green-600';
-        document.getElementById('m_koperasi').value = ''; document.getElementById('m_name').value = ''; document.getElementById('m_phone').value = '';
+        document.getElementById('m_koperasi').value = ''; document.getElementById('m_name').value = ''; document.getElementById('m_phone').value = ''; document.getElementById('m_email').value = '';
         loadList();
     });
 
