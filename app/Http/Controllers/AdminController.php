@@ -53,6 +53,7 @@ class AdminController extends Controller
         $m = Meeting::current();
         $rows = Attendance::with('shareholder')->where('meeting_id', $m->id)->orderByDesc('created_at')->get();
         $data = $rows->map(fn ($r) => [
+            'id'           => $r->id,
             'name'         => $r->name,
             'koperasi_id'  => $r->koperasi_id,
             'phone_number' => $r->phone_number,
@@ -99,6 +100,54 @@ class AdminController extends Controller
         $m = Meeting::current();
         $count = Attendance::where('meeting_id', $m->id)->delete();
         return response()->json(['status' => 'success', 'deleted' => $count]);
+    }
+
+    // Edit a submitted record (admin or staff). Errors if the new Koperasi ID
+    // overlaps another submission in the same meeting.
+    public function updateAttendance(Request $request, $id)
+    {
+        $data = $request->validate([
+            'name'         => ['required', 'string', 'max:150'],
+            'koperasi_id'  => ['required', 'string', 'max:100'],
+            'phone_number' => ['required', 'string', 'max:50'],
+            'email'        => ['required', 'email', 'max:150'],
+        ]);
+
+        $att = Attendance::find($id);
+        if (!$att) {
+            return response()->json(['status' => 'error', 'message' => 'Record not found.'], 404);
+        }
+
+        // Overlap check: another submission in this meeting already uses the new ID.
+        $overlap = Attendance::where('meeting_id', $att->meeting_id)
+            ->where('koperasi_id', $data['koperasi_id'])
+            ->where('id', '!=', $att->id)
+            ->exists();
+        if ($overlap) {
+            return response()->json(['status' => 'error', 'message' => 'Another submission already uses this Koperasi ID.'], 422);
+        }
+
+        try {
+            DB::transaction(function () use ($att, $data) {
+                if ($att->shareholder) {
+                    $att->shareholder->update([
+                        'name'         => $data['name'],
+                        'phone_number' => $data['phone_number'],
+                        'email'        => $data['email'],
+                        'koperasi_id'  => $data['koperasi_id'],
+                    ]);
+                }
+                $att->update([
+                    'name'         => $data['name'],
+                    'phone_number' => $data['phone_number'],
+                    'koperasi_id'  => $data['koperasi_id'],
+                ]);
+            });
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => 'That Koperasi ID is already in use.'], 422);
+        }
+
+        return response()->json(['status' => 'success', 'message' => 'Record updated.']);
     }
 
     // Admin manually adds a person (bypasses geofence/device; still one per Koperasi ID).

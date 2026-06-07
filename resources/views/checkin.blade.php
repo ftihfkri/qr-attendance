@@ -26,8 +26,8 @@
                 <input id="phone_number" type="tel" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
             </div>
             <div>
-                <label class="block text-sm font-medium mb-1">Email <span class="text-gray-400">(optional)</span></label>
-                <input id="email" type="email" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-sm font-medium mb-1">Email</label>
+                <input id="email" type="email" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
             </div>
             <button id="submitBtn" class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 font-medium">Submit</button>
             <p id="status" class="text-center text-sm"></p>
@@ -70,8 +70,8 @@
         const koperasi_id = document.getElementById('koperasi_id').value.trim();
         const phone_number = document.getElementById('phone_number').value.trim();
         const email = document.getElementById('email').value.trim();
-        if (!name || !koperasi_id || !phone_number) {
-            status.textContent = 'Please fill in name, Koperasi ID and phone.';
+        if (!name || !koperasi_id || !phone_number || !email) {
+            status.textContent = 'Please fill in all fields (name, Koperasi ID, phone, email).';
             status.className = 'text-center text-sm text-red-600';
             return;
         }
@@ -83,7 +83,7 @@
             const res = await window.apiFetch('/checkin', {
                 method: 'POST',
                 body: JSON.stringify({
-                    name, koperasi_id, phone_number, email: email || null,
+                    name, koperasi_id, phone_number, email,
                     device_fingerprint: deviceFingerprint(),
                     location_lat: loc.lat, location_lng: loc.lng,
                 }),

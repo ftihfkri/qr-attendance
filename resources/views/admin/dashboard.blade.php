@@ -49,7 +49,7 @@
             <div class="overflow-x-auto max-h-96 overflow-y-auto">
                 <table class="min-w-full border border-gray-300 text-sm">
                     <thead class="bg-gray-100 sticky top-0">
-                        <tr><th class="px-3 py-2 border text-left">#</th><th class="px-3 py-2 border text-left">Full Name</th><th class="px-3 py-2 border text-left">Koperasi ID</th><th class="px-3 py-2 border text-left">Method</th></tr>
+                        <tr><th class="px-3 py-2 border text-left">#</th><th class="px-3 py-2 border text-left">Full Name</th><th class="px-3 py-2 border text-left">Koperasi ID</th><th class="px-3 py-2 border text-left">Method</th><th class="px-3 py-2 border text-left">Edit</th></tr>
                     </thead>
                     <tbody id="listBody"></tbody>
                 </table>
@@ -71,6 +71,25 @@
             <button id="manualBtn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Check In</button>
         </div>
         <div id="manualMsg" class="text-sm mt-2"></div>
+    </div>
+
+    <!-- Edit modal -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">Edit Submission</h3>
+            <input type="hidden" id="e_id">
+            <div class="space-y-3">
+                <div><label class="block text-xs text-gray-600 mb-1">Koperasi ID</label><input id="e_koperasi" class="w-full p-2 border border-gray-300 rounded"></div>
+                <div><label class="block text-xs text-gray-600 mb-1">Full Name</label><input id="e_name" class="w-full p-2 border border-gray-300 rounded"></div>
+                <div><label class="block text-xs text-gray-600 mb-1">Phone</label><input id="e_phone" class="w-full p-2 border border-gray-300 rounded"></div>
+                <div><label class="block text-xs text-gray-600 mb-1">Email</label><input id="e_email" type="email" class="w-full p-2 border border-gray-300 rounded"></div>
+            </div>
+            <div id="editMsg" class="text-sm mt-3"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="editCancel" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+                <button id="editSave" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+            </div>
+        </div>
     </div>
 </div>
 @endsection
@@ -116,19 +135,62 @@
         { enableHighAccuracy: true, timeout: 10000 });
     });
 
+    let currentList = [];
+    function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
     async function loadList() {
         const res = await window.apiFetch('/admin/attendance');
         const { data } = await res.json();
+        currentList = data;
         document.getElementById('count').textContent = `(${data.length})`;
         const body = document.getElementById('listBody');
-        if (!data.length) { body.innerHTML = '<tr><td colspan="4" class="px-3 py-3 border text-center text-gray-500">No submissions yet.</td></tr>'; return; }
+        if (!data.length) { body.innerHTML = '<tr><td colspan="5" class="px-3 py-3 border text-center text-gray-500">No submissions yet.</td></tr>'; return; }
         body.innerHTML = data.map((r, i) => `<tr>
             <td class="px-3 py-2 border">${i + 1}</td>
-            <td class="px-3 py-2 border">${r.name ?? ''}</td>
-            <td class="px-3 py-2 border">${r.koperasi_id ?? ''}</td>
+            <td class="px-3 py-2 border">${esc(r.name)}</td>
+            <td class="px-3 py-2 border">${esc(r.koperasi_id)}</td>
             <td class="px-3 py-2 border">${r.method === 'manual' ? '<span class="text-indigo-600">Manual</span>' : '<span class="text-green-600">Scanned</span>'}</td>
+            <td class="px-3 py-2 border"><button class="edit-btn text-blue-600 hover:underline" data-idx="${i}">Edit</button></td>
         </tr>`).join('');
+        document.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => openEdit(parseInt(b.dataset.idx))));
     }
+
+    // ---- Edit modal ----
+    function openEdit(idx) {
+        const r = currentList[idx];
+        if (!r) return;
+        document.getElementById('e_id').value = r.id;
+        document.getElementById('e_koperasi').value = r.koperasi_id ?? '';
+        document.getElementById('e_name').value = r.name ?? '';
+        document.getElementById('e_phone').value = r.phone_number ?? '';
+        document.getElementById('e_email').value = r.email ?? '';
+        document.getElementById('editMsg').textContent = '';
+        const m = document.getElementById('editModal');
+        m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function closeEdit() {
+        const m = document.getElementById('editModal');
+        m.classList.add('hidden'); m.classList.remove('flex');
+    }
+    document.getElementById('editCancel').addEventListener('click', closeEdit);
+    document.getElementById('editSave').addEventListener('click', async () => {
+        const id = document.getElementById('e_id').value;
+        const payload = {
+            koperasi_id: document.getElementById('e_koperasi').value.trim(),
+            name: document.getElementById('e_name').value.trim(),
+            phone_number: document.getElementById('e_phone').value.trim(),
+            email: document.getElementById('e_email').value.trim(),
+        };
+        const em = document.getElementById('editMsg');
+        if (!payload.koperasi_id || !payload.name || !payload.phone_number || !payload.email) {
+            em.textContent = 'All fields are required.'; em.className = 'text-sm mt-3 text-red-600'; return;
+        }
+        const res = await window.apiFetch('/admin/attendance/' + id, { method: 'POST', body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!res.ok) { em.textContent = data.message || 'Update failed.'; em.className = 'text-sm mt-3 text-red-600'; return; }
+        closeEdit();
+        loadList();
+    });
 
     document.getElementById('refreshBtn').addEventListener('click', loadList);
 

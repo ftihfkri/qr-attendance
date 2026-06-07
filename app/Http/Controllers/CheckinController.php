@@ -21,7 +21,7 @@ class CheckinController extends Controller
             'name'               => ['required', 'string', 'max:150'],
             'koperasi_id'        => ['required', 'string', 'max:100'],
             'phone_number'       => ['required', 'string', 'max:50'],
-            'email'              => ['nullable', 'email', 'max:150'],
+            'email'              => ['required', 'email', 'max:150'],
             'device_fingerprint' => ['required', 'string', 'max:255'],
             'location_lat'       => ['nullable', 'numeric'],
             'location_lng'       => ['nullable', 'numeric'],

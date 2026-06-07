@@ -26,6 +26,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/venue', [AdminController::class, 'getVenue']);
     Route::post('/admin/venue', [AdminController::class, 'setVenue']);
     Route::get('/admin/attendance', [AdminController::class, 'attendanceList']);
+    Route::post('/admin/attendance/{id}', [AdminController::class, 'updateAttendance']);
     Route::get('/admin/export', [AdminController::class, 'export']);
     Route::post('/admin/clear', [AdminController::class, 'clear']);
     Route::post('/admin/manual', [AdminController::class, 'manualAdd']);
