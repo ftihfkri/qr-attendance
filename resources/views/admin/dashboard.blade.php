@@ -7,6 +7,7 @@
         <h1 class="text-2xl font-bold">Attendance Dashboard</h1>
         <div class="flex gap-2 items-center">
             <span class="text-sm text-gray-500">{{ auth()->user()->username }} ({{ auth()->user()->role }})</span>
+            <a href="/admin/verify" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">Verify / Search</a>
             @if (auth()->user()->isAdmin())
                 <a href="/admin/users" class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">Users</a>
             @endif

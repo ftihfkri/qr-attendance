@@ -15,6 +15,11 @@ class AdminController extends Controller
         return view('admin.dashboard', ['meeting' => Meeting::current()]);
     }
 
+    public function verify()
+    {
+        return view('admin.verify');
+    }
+
     public function getVenue()
     {
         $m = Meeting::current();

@@ -23,6 +23,7 @@ Route::post('/checkin', [CheckinController::class, 'store']);
 // ---- Authenticated (admin + staff share the same interface) ----
 Route::middleware('auth')->group(function () {
     Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::get('/admin/verify', [AdminController::class, 'verify']);
     Route::get('/admin/venue', [AdminController::class, 'getVenue']);
     Route::post('/admin/venue', [AdminController::class, 'setVenue']);
     Route::get('/admin/attendance', [AdminController::class, 'attendanceList']);
