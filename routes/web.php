@@ -10,15 +10,15 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect('/login'));
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1'); // 10/min (brute force)
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::get('/register', [AuthController::class, 'showRegister']);
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 
 // Public check-in (the QR points here)
 Route::get('/checkin', [CheckinController::class, 'show']);
-Route::post('/checkin', [CheckinController::class, 'store']);
+Route::post('/checkin', [CheckinController::class, 'store'])->middleware('throttle:30,1'); // cap spam/enumeration
 
 // ---- Authenticated (admin + staff share the same interface) ----
 Route::middleware('auth')->group(function () {

@@ -12,7 +12,10 @@ class TrustProxies extends Middleware
      *
      * @var array<int, string>|string|null
      */
-    protected $proxies;
+    // Railway/containers sit behind a single reverse proxy. Trusting it lets
+    // Laravel see the real client IP and detect HTTPS (X-Forwarded-Proto),
+    // so secure cookies + HSTS work correctly.
+    protected $proxies = '*';
 
     /**
      * The headers that should be used to detect proxies.

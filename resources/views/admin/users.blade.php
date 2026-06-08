@@ -40,15 +40,16 @@
 @push('scripts')
 <script>
     function showMsg(t, ok) { const e = document.getElementById('msg'); e.textContent = t; e.className = 'text-sm mt-3 ' + (ok ? 'text-green-600' : 'text-red-600'); }
+    function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
     async function loadUsers() {
         const res = await window.apiFetch('/admin/users/list');
         const { data } = await res.json();
         document.getElementById('usersBody').innerHTML = data.map(u => `<tr>
             <td class="px-3 py-2 border">${u.id}</td>
-            <td class="px-3 py-2 border">${u.username}</td>
-            <td class="px-3 py-2 border">${u.role}</td>
-            <td class="px-3 py-2 border"><button data-id="${u.id}" data-name="${u.username}" class="del text-red-500 hover:underline">Delete</button></td>
+            <td class="px-3 py-2 border">${esc(u.username)}</td>
+            <td class="px-3 py-2 border">${esc(u.role)}</td>
+            <td class="px-3 py-2 border"><button data-id="${u.id}" data-name="${esc(u.username)}" class="del text-red-500 hover:underline">Delete</button></td>
         </tr>`).join('');
         document.querySelectorAll('.del').forEach(b => b.addEventListener('click', () => del(b.dataset.id, b.dataset.name)));
     }
