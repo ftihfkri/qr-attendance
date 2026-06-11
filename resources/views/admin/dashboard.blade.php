@@ -8,6 +8,7 @@
         <div class="flex gap-2 items-center">
             <span class="text-sm text-gray-500">{{ auth()->user()->username }} ({{ auth()->user()->role }})</span>
             <a href="/admin/verify" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">Verify / Search</a>
+            <a href="/admin/upload" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm">Upload Roster</a>
             @if (auth()->user()->isAdmin())
                 <a href="/admin/users" class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">Users</a>
             @endif
@@ -50,7 +51,7 @@
             <div class="overflow-x-auto max-h-96 overflow-y-auto">
                 <table class="min-w-full border border-gray-300 text-sm">
                     <thead class="bg-gray-100 sticky top-0">
-                        <tr><th class="px-3 py-2 border text-left">#</th><th class="px-3 py-2 border text-left">Full Name</th><th class="px-3 py-2 border text-left">Nombor Ahli / Anggota</th><th class="px-3 py-2 border text-left">Method</th><th class="px-3 py-2 border text-left">Edit</th></tr>
+                        <tr><th class="px-3 py-2 border text-left">#</th><th class="px-3 py-2 border text-left">Full Name</th><th class="px-3 py-2 border text-left">Nombor Ahli / Anggota</th><th class="px-3 py-2 border text-left">Method</th><th class="px-3 py-2 border text-left">Edit</th><th class="px-3 py-2 border text-left">Delete</th></tr>
                     </thead>
                     <tbody id="listBody"></tbody>
                 </table>
@@ -61,28 +62,15 @@
         </div>
     </div>
 
-    <!-- Manual add -->
+    <!-- Quick check-in: click a not-yet-submitted member from the roster -->
     <div class="bg-white p-4 rounded-lg shadow mt-6">
-        <h2 class="text-lg font-semibold mb-3">Manual Check-In</h2>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
-            <div><label class="block text-xs text-gray-600 mb-1">Nombor Ahli / Nombor Anggota</label><input id="m_koperasi" class="w-full p-2 border border-gray-300 rounded"></div>
-            <div><label class="block text-xs text-gray-600 mb-1">Name</label><input id="m_name" class="w-full p-2 border border-gray-300 rounded"></div>
-            <div><label class="block text-xs text-gray-600 mb-1">Phone</label><input id="m_phone" class="w-full p-2 border border-gray-300 rounded"></div>
-            <div><label class="block text-xs text-gray-600 mb-1">Email</label><input id="m_email" type="email" class="w-full p-2 border border-gray-300 rounded"></div>
-            <button id="manualBtn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Check In</button>
+        <div class="flex justify-between items-center mb-1">
+            <h2 class="text-lg font-semibold">Quick Check-In <span id="pendingCount" class="text-sm font-normal text-gray-500"></span></h2>
         </div>
-        <div id="manualMsg" class="text-sm mt-2"></div>
-    </div>
-
-    <!-- Membership roster upload -->
-    <div class="bg-white p-4 rounded-lg shadow mt-6">
-        <h2 class="text-lg font-semibold mb-1">Upload Membership Roster</h2>
-        <p class="text-xs text-gray-400 mb-3">Excel (.xlsx) or CSV with two columns: <b>name</b> and <b>membership_id</b>. A header row is optional. Existing IDs are skipped.</p>
-        <div class="flex flex-wrap items-center gap-3">
-            <input id="memberFile" type="file" accept=".xlsx,.csv" class="text-sm">
-            <button id="uploadMembersBtn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 disabled:opacity-50">Upload</button>
-        </div>
-        <div id="uploadMsg" class="text-sm mt-2 min-h-5"></div>
+        <p class="text-xs text-gray-400 mb-3">Members from the roster who haven't checked in yet. Search and click <b>Check in</b> to mark them present.</p>
+        <input id="memberSearch" type="text" placeholder="Search name or Nombor Ahli / Anggota…" class="w-full p-2 border border-gray-300 rounded mb-3">
+        <div id="pendingList" class="max-h-80 overflow-y-auto divide-y border border-gray-200 rounded"></div>
+        <div id="quickMsg" class="text-sm mt-2 min-h-5"></div>
     </div>
 
     <!-- Edit modal -->
@@ -156,15 +144,25 @@
         currentList = data;
         document.getElementById('count').textContent = `(${data.length})`;
         const body = document.getElementById('listBody');
-        if (!data.length) { body.innerHTML = '<tr><td colspan="5" class="px-3 py-3 border text-center text-gray-500">No submissions yet.</td></tr>'; return; }
+        if (!data.length) { body.innerHTML = '<tr><td colspan="6" class="px-3 py-3 border text-center text-gray-500">No submissions yet.</td></tr>'; return; }
         body.innerHTML = data.map((r, i) => `<tr>
             <td class="px-3 py-2 border">${i + 1}</td>
             <td class="px-3 py-2 border">${esc(r.name)}</td>
             <td class="px-3 py-2 border">${esc(r.koperasi_id)}</td>
             <td class="px-3 py-2 border">${r.method === 'manual' ? '<span class="text-indigo-600">Manual</span>' : '<span class="text-green-600">Scanned</span>'}</td>
             <td class="px-3 py-2 border"><button class="edit-btn text-blue-600 hover:underline" data-idx="${i}">Edit</button></td>
+            <td class="px-3 py-2 border"><button class="del-btn text-red-600 hover:underline" data-id="${r.id}" data-name="${esc(r.name)}">Delete</button></td>
         </tr>`).join('');
         document.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => openEdit(parseInt(b.dataset.idx))));
+        document.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', () => deleteSubmission(b.dataset.id, b.dataset.name)));
+    }
+
+    async function deleteSubmission(id, name) {
+        if (!confirm(`Delete the check-in for "${name}"? This removes them from the submitted list.`)) return;
+        const res = await window.apiFetch('/admin/attendance/' + id, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) { alert(data.message || 'Delete failed.'); return; }
+        loadList(); loadRoster();
     }
 
     // ---- Edit modal ----
@@ -212,57 +210,44 @@
         loadList();
     });
 
-    document.getElementById('manualBtn').addEventListener('click', async () => {
-        const msg = document.getElementById('manualMsg');
-        const koperasi_id = document.getElementById('m_koperasi').value.trim();
-        const name = document.getElementById('m_name').value.trim();
-        const phone_number = document.getElementById('m_phone').value.trim();
-        const email = document.getElementById('m_email').value.trim();
-        if (!koperasi_id || !name || !phone_number || !email) { msg.textContent = 'Fill all fields (including email).'; msg.className = 'text-sm mt-2 text-red-600'; return; }
-        const res = await window.apiFetch('/admin/manual', { method: 'POST', body: JSON.stringify({ koperasi_id, name, phone_number, email }) });
+    // ---- Quick Check-In: roster members who haven't submitted yet ----
+    let roster = [];
+    async function loadRoster() {
+        const res = await window.apiFetch('/admin/roster');
+        const { data } = await res.json();
+        roster = data;
+        renderPending();
+    }
+    function renderPending() {
+        const box = document.getElementById('pendingList');
+        const q = document.getElementById('memberSearch').value.trim().toLowerCase();
+        let pending = roster.filter(r => !r.submitted);
+        const total = pending.length;
+        if (q) pending = pending.filter(r =>
+            String(r.name ?? '').toLowerCase().includes(q) || String(r.member_id ?? '').toLowerCase().includes(q));
+        document.getElementById('pendingCount').textContent = `(${total} pending)`;
+        if (!roster.length) { box.innerHTML = '<div class="p-3 text-sm text-gray-500">No roster yet — add members from “Upload Roster”.</div>'; return; }
+        if (!pending.length) { box.innerHTML = '<div class="p-3 text-sm text-gray-500">' + (total ? 'No matches.' : 'Everyone has checked in. 🎉') + '</div>'; return; }
+        box.innerHTML = pending.slice(0, 200).map(r => `<div class="flex justify-between items-center p-2 hover:bg-indigo-50">
+            <span class="truncate"><span class="font-medium">${esc(r.name)}</span> <span class="text-gray-400 text-sm">${esc(r.member_id)}</span></span>
+            <button class="attend-btn shrink-0 bg-green-600 text-white text-xs px-3 py-1 rounded hover:bg-green-700" data-id="${esc(r.member_id)}">Check in</button>
+        </div>`).join('');
+        box.querySelectorAll('.attend-btn').forEach(b => b.addEventListener('click', () => quickCheckIn(b.dataset.id, b)));
+    }
+    async function quickCheckIn(memberId, btn) {
+        const msg = document.getElementById('quickMsg');
+        btn.disabled = true; btn.textContent = '…';
+        const res = await window.apiFetch('/admin/roster/mark', { method: 'POST', body: JSON.stringify({ member_id: memberId, attend: true }) });
         const data = await res.json();
-        if (!res.ok) { msg.textContent = data.message || 'Failed'; msg.className = 'text-sm mt-2 text-red-600'; return; }
-        msg.textContent = name + ' added.'; msg.className = 'text-sm mt-2 text-green-600';
-        document.getElementById('m_koperasi').value = ''; document.getElementById('m_name').value = ''; document.getElementById('m_phone').value = ''; document.getElementById('m_email').value = '';
-        loadList();
-    });
-
-    // ---- Membership roster upload (multipart; can't use the JSON apiFetch helper) ----
-    document.getElementById('uploadMembersBtn').addEventListener('click', async () => {
-        const input = document.getElementById('memberFile');
-        const msg = document.getElementById('uploadMsg');
-        const btn = document.getElementById('uploadMembersBtn');
-        const file = input.files[0];
-        if (!file) { msg.textContent = 'Choose a .xlsx or .csv file first.'; msg.className = 'text-sm mt-2 text-red-600'; return; }
-
-        const form = new FormData();
-        form.append('file', file);
-        btn.disabled = true; btn.textContent = 'Uploading…';
-        msg.textContent = 'Uploading…'; msg.className = 'text-sm mt-2 text-gray-500';
-        try {
-            const res = await fetch('/admin/memberships/upload', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': window.csrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: form,
-            });
-            if (res.status === 401 || res.status === 419) { showSessionExpired(); return; }
-            const data = await res.json();
-            if (!res.ok || data.status !== 'success') throw new Error(data.message || 'Upload failed.');
-            const { added, skipped, errors } = data.data;
-            let text = `${added} added, ${skipped} skipped`;
-            if (errors.length) text += `, ${errors.length} error${errors.length > 1 ? 's' : ''} — ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? '…' : ''}`;
-            msg.textContent = text;
-            msg.className = 'text-sm mt-2 ' + (errors.length ? 'text-amber-600' : 'text-green-600');
-            input.value = '';
-        } catch (e) {
-            msg.textContent = e.message || 'Upload failed.'; msg.className = 'text-sm mt-2 text-red-600';
-        } finally {
-            btn.disabled = false; btn.textContent = 'Upload';
-        }
-    });
+        if (!res.ok) { msg.textContent = data.message || 'Failed.'; msg.className = 'text-sm mt-2 text-red-600'; btn.disabled = false; btn.textContent = 'Check in'; return; }
+        msg.textContent = data.message; msg.className = 'text-sm mt-2 text-green-600';
+        await loadRoster(); await loadList();
+    }
+    document.getElementById('memberSearch').addEventListener('input', renderPending);
 
     loadVenue();
     loadList();
-    setInterval(loadList, 10000);
+    loadRoster();
+    setInterval(() => { loadList(); loadRoster(); }, 10000);
 </script>
 @endpush

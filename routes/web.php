@@ -29,10 +29,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/venue', [AdminController::class, 'setVenue']);
     Route::get('/admin/attendance', [AdminController::class, 'attendanceList']);
     Route::post('/admin/attendance/{id}', [AdminController::class, 'updateAttendance']);
+    Route::delete('/admin/attendance/{id}', [AdminController::class, 'deleteAttendance']);
     Route::get('/admin/export', [AdminController::class, 'export']);
     Route::post('/admin/clear', [AdminController::class, 'clear']);
     Route::post('/admin/manual', [AdminController::class, 'manualAdd']);
+
+    // Membership roster + attendance status
+    Route::get('/admin/upload', [AdminController::class, 'uploadPage']);
     Route::post('/admin/memberships/upload', [AdminController::class, 'membershipUpload']);
+    Route::get('/admin/roster', [AdminController::class, 'roster']);
+    Route::post('/admin/roster/mark', [AdminController::class, 'markAttendance']);
 
     // ---- Admin role only: user management ----
     Route::middleware('role:admin')->group(function () {

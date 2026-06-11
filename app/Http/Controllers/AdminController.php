@@ -261,4 +261,110 @@ class AdminController extends Controller
 
         return response()->json(['status' => 'success', 'data' => compact('added', 'skipped', 'errors')]);
     }
+
+    // Delete a single submission (human error). Removes the check-in record;
+    // the shareholder/roster entry is kept.
+    public function deleteAttendance($id)
+    {
+        $att = Attendance::find($id);
+        if (!$att) {
+            return response()->json(['status' => 'error', 'message' => 'Record not found.'], 404);
+        }
+        $att->delete();
+        return response()->json(['status' => 'success', 'message' => 'Submission deleted.']);
+    }
+
+    // Dedicated upload page (linked from the dashboard top bar).
+    public function uploadPage()
+    {
+        return view('admin.upload');
+    }
+
+    // The full roster with attendance status for the current meeting. Combines
+    // the uploaded membership list with anyone who attended but isn't on it.
+    public function roster()
+    {
+        $m = Meeting::current();
+
+        $attended = Attendance::where('meeting_id', $m->id)
+            ->get(['id', 'koperasi_id', 'name', 'time', 'method'])
+            ->keyBy('koperasi_id');
+
+        $rows = [];
+        foreach (Membership::orderBy('name')->get(['name', 'member_id']) as $member) {
+            $a = $attended->get($member->member_id);
+            $rows[] = [
+                'member_id' => $member->member_id,
+                'name'      => $a->name ?? $member->name,
+                'submitted' => (bool) $a,
+                'time'      => $a->time ?? null,
+                'method'    => $a->method ?? null,
+                'in_roster' => true,
+            ];
+            if ($a) {
+                $attended->forget($member->member_id);
+            }
+        }
+
+        // Walk-ins / ad-hoc IDs that attended but aren't on the roster.
+        foreach ($attended as $a) {
+            $rows[] = [
+                'member_id' => $a->koperasi_id,
+                'name'      => $a->name,
+                'submitted' => true,
+                'time'      => $a->time,
+                'method'    => $a->method,
+                'in_roster' => false,
+            ];
+        }
+
+        return response()->json(['status' => 'success', 'data' => $rows]);
+    }
+
+    // Mark a member present (attend=true) or remove their check-in (attend=false)
+    // for the current meeting. Used by the Quick Check-In list and the Verify page.
+    public function markAttendance(Request $request)
+    {
+        $data = $request->validate([
+            'member_id' => ['required', 'string', 'max:100'],
+            'attend'    => ['required', 'boolean'],
+            'name'      => ['nullable', 'string', 'max:150'],
+        ]);
+
+        $m = Meeting::current();
+        $memberId = trim($data['member_id']);
+
+        if (!$data['attend']) {
+            Attendance::where('meeting_id', $m->id)->where('koperasi_id', $memberId)->delete();
+            return response()->json(['status' => 'success', 'message' => 'Marked as not attended.']);
+        }
+
+        if (Attendance::where('meeting_id', $m->id)->where('koperasi_id', $memberId)->exists()) {
+            return response()->json(['status' => 'success', 'message' => 'Already checked in.']);
+        }
+
+        $membership = Membership::where('member_id', $memberId)->first();
+        $name = $membership->name ?? ($data['name'] ?? $memberId);
+
+        DB::transaction(function () use ($m, $memberId, $name) {
+            $shareholder = Shareholder::firstOrCreate(
+                ['koperasi_id' => $memberId],
+                ['name' => $name, 'phone_number' => '']
+            );
+            Attendance::create([
+                'meeting_id'         => $m->id,
+                'shareholder_id'     => $shareholder->id,
+                'koperasi_id'        => $memberId,
+                'name'               => $name,
+                'phone_number'       => $shareholder->phone_number ?? '',
+                'date'               => now()->format('Y-m-d'),
+                'time'               => now()->format('H:i:s'),
+                'device_fingerprint' => 'manual:' . $memberId,
+                'status'             => 'present',
+                'method'             => 'manual',
+            ]);
+        });
+
+        return response()->json(['status' => 'success', 'message' => 'Marked as attended.']);
+    }
 }
