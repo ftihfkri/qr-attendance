@@ -6,9 +6,32 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Koperasi Attendance')</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+                            400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+                            800: '#3730a3', 900: '#312e81',
+                        },
+                    },
+                    boxShadow: { card: '0 1px 3px rgba(15,23,42,.08), 0 10px 30px -12px rgba(15,23,42,.18)' },
+                },
+            },
+        };
+    </script>
+    <style>
+        body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    </style>
     @stack('head')
 </head>
-<body class="bg-gray-100 min-h-screen text-gray-800">
+<body class="bg-slate-50 min-h-screen text-slate-800">
     @yield('content')
 
     <!-- Session expired popup -->

@@ -2,35 +2,36 @@
 @section('title', 'Attendance Check-In')
 
 @section('content')
-<div class="min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-        <div class="text-center mb-6">
-            <div class="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span class="text-2xl">📋</span>
+<div class="min-h-screen flex items-center justify-center p-4"
+     style="background:linear-gradient(135deg,#eef2ff 0%,#f5f3ff 100%)">
+    <div class="bg-white rounded-2xl shadow-card p-8 w-full max-w-md border border-slate-100">
+        <div class="text-center mb-7">
+            <div class="w-14 h-14 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-sm">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
             </div>
-            <h1 class="text-2xl font-bold">Attendance Check-In</h1>
-            <p class="text-gray-500 text-sm mt-1">Please fill in your details</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Attendance Check-In</h1>
+            <p class="text-slate-500 text-sm mt-1">Start typing your name and pick yourself from the list.</p>
         </div>
 
         <form id="form" class="space-y-4">
             <div class="relative">
-                <label class="block text-sm font-medium mb-1">Full Name</label>
-                <input id="name" autocomplete="off" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                <ul id="nameSuggestions" class="absolute z-20 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-56 overflow-y-auto hidden"></ul>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+                <input id="name" autocomplete="off" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition" placeholder="Type your name…">
+                <ul id="nameSuggestions" class="absolute z-20 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-56 overflow-y-auto hidden"></ul>
             </div>
             <div>
-                <label class="block text-sm font-medium mb-1">Nombor Ahli / Nombor Anggota</label>
-                <input id="koperasi_id" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Nombor Ahli / Nombor Anggota</label>
+                <input id="koperasi_id" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
             </div>
             <div>
-                <label class="block text-sm font-medium mb-1">Phone Number</label>
-                <input id="phone_number" type="tel" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone Number</label>
+                <input id="phone_number" type="tel" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
             </div>
             <div>
-                <label class="block text-sm font-medium mb-1">Email</label>
-                <input id="email" type="email" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+                <input id="email" type="email" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
             </div>
-            <button id="submitBtn" class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 font-medium">Submit</button>
+            <button id="submitBtn" class="w-full bg-brand-600 text-white py-2.5 rounded-lg hover:bg-brand-700 active:bg-brand-800 font-semibold shadow-sm transition focus:ring-2 focus:ring-brand-500/40 outline-none">Submit</button>
             <p id="status" class="text-center text-sm"></p>
         </form>
     </div>
