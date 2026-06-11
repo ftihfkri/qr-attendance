@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use App\Models\Meeting;
+use App\Models\Membership;
 use App\Models\Shareholder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,23 @@ class CheckinController extends Controller
     public function show()
     {
         return view('checkin');
+    }
+
+    // Autocomplete for the check-in form: match roster names and return the
+    // membership_id so the shareholder can pick themselves and auto-fill the ID.
+    public function searchMembers(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json(['data' => []]);
+        }
+
+        $matches = Membership::where('name', 'like', '%' . $q . '%')
+            ->orderBy('name')
+            ->limit(8)
+            ->get(['name', 'member_id']);
+
+        return response()->json(['data' => $matches]);
     }
 
     public function store(Request $request)

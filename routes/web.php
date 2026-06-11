@@ -18,6 +18,7 @@ Route::post('/register', [AuthController::class, 'register'])->middleware('throt
 
 // Public check-in (the QR points here)
 Route::get('/checkin', [CheckinController::class, 'show']);
+Route::get('/checkin/members', [CheckinController::class, 'searchMembers'])->middleware('throttle:60,1'); // roster autocomplete
 Route::post('/checkin', [CheckinController::class, 'store'])->middleware('throttle:30,1'); // cap spam/enumeration
 
 // ---- Authenticated (admin + staff share the same interface) ----

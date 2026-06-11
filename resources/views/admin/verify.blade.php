@@ -15,7 +15,7 @@
 
     <div class="bg-white p-4 rounded-lg shadow mb-4">
         <div class="flex flex-wrap gap-3 items-center">
-            <input id="search" type="text" placeholder="Search by name or Koperasi ID…"
+            <input id="search" type="text" placeholder="Search by name or Nombor Ahli / Anggota…"
                 class="flex-grow min-w-[240px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
             <button id="refreshBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Refresh</button>
             <span id="count" class="text-sm text-gray-500"></span>
@@ -29,7 +29,7 @@
                     <tr>
                         <th class="px-3 py-2 border text-left">#</th>
                         <th class="px-3 py-2 border text-left">Full Name</th>
-                        <th class="px-3 py-2 border text-left">Koperasi ID</th>
+                        <th class="px-3 py-2 border text-left">Nombor Ahli / Anggota</th>
                         <th class="px-3 py-2 border text-left">Phone</th>
                         <th class="px-3 py-2 border text-left">Email</th>
                         <th class="px-3 py-2 border text-left">Time</th>

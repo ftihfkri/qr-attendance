@@ -50,7 +50,7 @@
             <div class="overflow-x-auto max-h-96 overflow-y-auto">
                 <table class="min-w-full border border-gray-300 text-sm">
                     <thead class="bg-gray-100 sticky top-0">
-                        <tr><th class="px-3 py-2 border text-left">#</th><th class="px-3 py-2 border text-left">Full Name</th><th class="px-3 py-2 border text-left">Koperasi ID</th><th class="px-3 py-2 border text-left">Method</th><th class="px-3 py-2 border text-left">Edit</th></tr>
+                        <tr><th class="px-3 py-2 border text-left">#</th><th class="px-3 py-2 border text-left">Full Name</th><th class="px-3 py-2 border text-left">Nombor Ahli / Anggota</th><th class="px-3 py-2 border text-left">Method</th><th class="px-3 py-2 border text-left">Edit</th></tr>
                     </thead>
                     <tbody id="listBody"></tbody>
                 </table>
@@ -65,7 +65,7 @@
     <div class="bg-white p-4 rounded-lg shadow mt-6">
         <h2 class="text-lg font-semibold mb-3">Manual Check-In</h2>
         <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
-            <div><label class="block text-xs text-gray-600 mb-1">Koperasi ID</label><input id="m_koperasi" class="w-full p-2 border border-gray-300 rounded"></div>
+            <div><label class="block text-xs text-gray-600 mb-1">Nombor Ahli / Nombor Anggota</label><input id="m_koperasi" class="w-full p-2 border border-gray-300 rounded"></div>
             <div><label class="block text-xs text-gray-600 mb-1">Name</label><input id="m_name" class="w-full p-2 border border-gray-300 rounded"></div>
             <div><label class="block text-xs text-gray-600 mb-1">Phone</label><input id="m_phone" class="w-full p-2 border border-gray-300 rounded"></div>
             <div><label class="block text-xs text-gray-600 mb-1">Email</label><input id="m_email" type="email" class="w-full p-2 border border-gray-300 rounded"></div>
@@ -91,7 +91,7 @@
             <h3 class="text-lg font-semibold mb-4">Edit Submission</h3>
             <input type="hidden" id="e_id">
             <div class="space-y-3">
-                <div><label class="block text-xs text-gray-600 mb-1">Koperasi ID</label><input id="e_koperasi" class="w-full p-2 border border-gray-300 rounded"></div>
+                <div><label class="block text-xs text-gray-600 mb-1">Nombor Ahli / Nombor Anggota</label><input id="e_koperasi" class="w-full p-2 border border-gray-300 rounded"></div>
                 <div><label class="block text-xs text-gray-600 mb-1">Full Name</label><input id="e_name" class="w-full p-2 border border-gray-300 rounded"></div>
                 <div><label class="block text-xs text-gray-600 mb-1">Phone</label><input id="e_phone" class="w-full p-2 border border-gray-300 rounded"></div>
                 <div><label class="block text-xs text-gray-600 mb-1">Email</label><input id="e_email" type="email" class="w-full p-2 border border-gray-300 rounded"></div>

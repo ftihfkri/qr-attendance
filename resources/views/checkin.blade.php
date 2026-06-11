@@ -13,12 +13,13 @@
         </div>
 
         <form id="form" class="space-y-4">
-            <div>
+            <div class="relative">
                 <label class="block text-sm font-medium mb-1">Full Name</label>
-                <input id="name" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <input id="name" autocomplete="off" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <ul id="nameSuggestions" class="absolute z-20 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-56 overflow-y-auto hidden"></ul>
             </div>
             <div>
-                <label class="block text-sm font-medium mb-1">Koperasi ID</label>
+                <label class="block text-sm font-medium mb-1">Nombor Ahli / Nombor Anggota</label>
                 <input id="koperasi_id" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
             </div>
             <div>
@@ -38,6 +39,46 @@
 
 @push('scripts')
 <script>
+    // ---- Name autocomplete from the membership roster (fills the Koperasi ID) ----
+    const nameInput = document.getElementById('name');
+    const koperasiInput = document.getElementById('koperasi_id');
+    const suggestionsBox = document.getElementById('nameSuggestions');
+
+    function escHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function hideSuggestions() { suggestionsBox.classList.add('hidden'); suggestionsBox.innerHTML = ''; }
+
+    let searchTimer = null;
+    nameInput.addEventListener('input', () => {
+        const q = nameInput.value.trim();
+        clearTimeout(searchTimer);
+        if (q.length < 2) { hideSuggestions(); return; }
+        searchTimer = setTimeout(async () => {
+            try {
+                const res = await fetch('/checkin/members?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) { hideSuggestions(); return; }
+                const { data } = await res.json();
+                if (!data || !data.length) { hideSuggestions(); return; }
+                suggestionsBox.innerHTML = data.map(m =>
+                    `<li class="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm flex justify-between gap-2" data-name="${escHtml(m.name)}" data-id="${escHtml(m.member_id)}">
+                        <span class="font-medium truncate">${escHtml(m.name)}</span>
+                        <span class="text-gray-400 shrink-0">${escHtml(m.member_id)}</span>
+                    </li>`).join('');
+                suggestionsBox.classList.remove('hidden');
+                suggestionsBox.querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
+                    nameInput.value = li.dataset.name;
+                    koperasiInput.value = li.dataset.id;
+                    hideSuggestions();
+                }));
+            } catch (e) { hideSuggestions(); }
+        }, 250);
+    });
+    // Hide the dropdown when clicking elsewhere.
+    document.addEventListener('click', (e) => {
+        if (e.target !== nameInput && !suggestionsBox.contains(e.target)) hideSuggestions();
+    });
+
     function deviceFingerprint() {
         const key = 'device-fp';
         let fp = localStorage.getItem(key);
@@ -71,7 +112,7 @@
         const phone_number = document.getElementById('phone_number').value.trim();
         const email = document.getElementById('email').value.trim();
         if (!name || !koperasi_id || !phone_number || !email) {
-            status.textContent = 'Please fill in all fields (name, Koperasi ID, phone, email).';
+            status.textContent = 'Please fill in all fields (name, Nombor Ahli / Anggota, phone, email).';
             status.className = 'text-center text-sm text-red-600';
             return;
         }
