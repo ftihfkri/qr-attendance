@@ -1,7 +1,7 @@
 FROM php:8.2-fpm-alpine AS base
 
-RUN apk add --no-cache git curl zip unzip nginx supervisor gettext \
-    && docker-php-ext-install pdo_mysql opcache
+RUN apk add --no-cache git curl zip unzip nginx supervisor gettext libzip-dev \
+    && docker-php-ext-install pdo_mysql opcache zip
 
 # PHP-FPM listens internally on 9001; nginx owns the public $PORT.
 RUN printf "[www]\nlisten = 127.0.0.1:9001\n" > /usr/local/etc/php-fpm.d/zzz-port.conf

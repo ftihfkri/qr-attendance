@@ -74,6 +74,17 @@
         <div id="manualMsg" class="text-sm mt-2"></div>
     </div>
 
+    <!-- Membership roster upload -->
+    <div class="bg-white p-4 rounded-lg shadow mt-6">
+        <h2 class="text-lg font-semibold mb-1">Upload Membership Roster</h2>
+        <p class="text-xs text-gray-400 mb-3">Excel (.xlsx) or CSV with two columns: <b>name</b> and <b>membership_id</b>. A header row is optional. Existing IDs are skipped.</p>
+        <div class="flex flex-wrap items-center gap-3">
+            <input id="memberFile" type="file" accept=".xlsx,.csv" class="text-sm">
+            <button id="uploadMembersBtn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 disabled:opacity-50">Upload</button>
+        </div>
+        <div id="uploadMsg" class="text-sm mt-2 min-h-5"></div>
+    </div>
+
     <!-- Edit modal -->
     <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
@@ -214,6 +225,40 @@
         msg.textContent = name + ' added.'; msg.className = 'text-sm mt-2 text-green-600';
         document.getElementById('m_koperasi').value = ''; document.getElementById('m_name').value = ''; document.getElementById('m_phone').value = ''; document.getElementById('m_email').value = '';
         loadList();
+    });
+
+    // ---- Membership roster upload (multipart; can't use the JSON apiFetch helper) ----
+    document.getElementById('uploadMembersBtn').addEventListener('click', async () => {
+        const input = document.getElementById('memberFile');
+        const msg = document.getElementById('uploadMsg');
+        const btn = document.getElementById('uploadMembersBtn');
+        const file = input.files[0];
+        if (!file) { msg.textContent = 'Choose a .xlsx or .csv file first.'; msg.className = 'text-sm mt-2 text-red-600'; return; }
+
+        const form = new FormData();
+        form.append('file', file);
+        btn.disabled = true; btn.textContent = 'Uploading…';
+        msg.textContent = 'Uploading…'; msg.className = 'text-sm mt-2 text-gray-500';
+        try {
+            const res = await fetch('/admin/memberships/upload', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': window.csrfToken, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: form,
+            });
+            if (res.status === 401 || res.status === 419) { showSessionExpired(); return; }
+            const data = await res.json();
+            if (!res.ok || data.status !== 'success') throw new Error(data.message || 'Upload failed.');
+            const { added, skipped, errors } = data.data;
+            let text = `${added} added, ${skipped} skipped`;
+            if (errors.length) text += `, ${errors.length} error${errors.length > 1 ? 's' : ''} — ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? '…' : ''}`;
+            msg.textContent = text;
+            msg.className = 'text-sm mt-2 ' + (errors.length ? 'text-amber-600' : 'text-green-600');
+            input.value = '';
+        } catch (e) {
+            msg.textContent = e.message || 'Upload failed.'; msg.className = 'text-sm mt-2 text-red-600';
+        } finally {
+            btn.disabled = false; btn.textContent = 'Upload';
+        }
     });
 
     loadVenue();

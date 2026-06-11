@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use App\Models\Meeting;
+use App\Models\Membership;
 use App\Models\Shareholder;
+use App\Support\SpreadsheetReader;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -190,5 +192,73 @@ class AdminController extends Controller
         });
 
         return response()->json(['status' => 'success', 'message' => 'Added to the list.']);
+    }
+
+    // Bulk-import the membership roster from an .xlsx / .csv file with two
+    // columns (name, membership_id). Existing member_ids are skipped, not
+    // overwritten. Returns { added, skipped, errors }.
+    public function membershipUpload(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:5120'], // 5 MB
+        ]);
+
+        $file = $request->file('file');
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['xlsx', 'csv', 'txt'], true)) {
+            return response()->json(['status' => 'error', 'message' => 'Please upload a .xlsx or .csv file.'], 422);
+        }
+
+        try {
+            $rows = $ext === 'xlsx'
+                ? SpreadsheetReader::xlsx($file->getRealPath())
+                : SpreadsheetReader::csv($file->getRealPath());
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => 'Could not read the file: ' . $e->getMessage()], 422);
+        }
+
+        if (empty($rows)) {
+            return response()->json(['status' => 'error', 'message' => 'The file is empty.'], 422);
+        }
+
+        // Skip a header row if the first row looks like column titles.
+        $firstName = strtolower(preg_replace('/[\s_]/', '', (string) ($rows[0][0] ?? '')));
+        $firstId   = strtolower(preg_replace('/[\s_]/', '', (string) ($rows[0][1] ?? '')));
+        $hasHeader = str_contains($firstName, 'name') || preg_match('/member|^id$/', $firstId);
+        $dataRows  = $hasHeader ? array_slice($rows, 1) : $rows;
+
+        $added = 0;
+        $skipped = 0;
+        $errors = [];
+        $seen = [];
+
+        foreach ($dataRows as $i => $row) {
+            $rowNum = $hasHeader ? $i + 2 : $i + 1; // 1-based, for readable errors
+            $name = trim((string) ($row[0] ?? ''));
+            $memberId = trim((string) ($row[1] ?? ''));
+
+            if ($name === '' && $memberId === '') {
+                continue; // blank line
+            }
+            if ($name === '' || $memberId === '') {
+                $errors[] = "Row {$rowNum}: missing " . ($name === '' ? 'name' : 'membership_id');
+                continue;
+            }
+            if (isset($seen[$memberId])) {
+                $skipped++; // duplicate within the file
+                continue;
+            }
+            $seen[$memberId] = true;
+
+            if (Membership::where('member_id', $memberId)->exists()) {
+                $skipped++;
+                continue;
+            }
+
+            Membership::create(['name' => $name, 'member_id' => $memberId]);
+            $added++;
+        }
+
+        return response()->json(['status' => 'success', 'data' => compact('added', 'skipped', 'errors')]);
     }
 }

@@ -31,6 +31,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/export', [AdminController::class, 'export']);
     Route::post('/admin/clear', [AdminController::class, 'clear']);
     Route::post('/admin/manual', [AdminController::class, 'manualAdd']);
+    Route::post('/admin/memberships/upload', [AdminController::class, 'membershipUpload']);
 
     // ---- Admin role only: user management ----
     Route::middleware('role:admin')->group(function () {
