@@ -45,6 +45,19 @@ class CheckinController extends Controller
             'location_lng'       => ['nullable', 'numeric'],
         ]);
 
+        // 0. The name + Nombor Ahli must match the uploaded membership roster.
+        //    Prevents checking in with someone else's ID (or a made-up one).
+        $member = Membership::where('member_id', $data['koperasi_id'])->first();
+        if (!$member) {
+            return response()->json(['status' => 'error', 'message' => 'This Nombor Ahli / Anggota is not in the membership list.'], 422);
+        }
+        $normalize = fn ($s) => mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $s)));
+        if ($normalize($member->name) !== $normalize($data['name'])) {
+            return response()->json(['status' => 'error', 'message' => 'The name does not match this Nombor Ahli / Anggota. Please pick your name from the suggestions.'], 422);
+        }
+        // Store the roster's canonical spelling so the list stays consistent.
+        $data['name'] = $member->name;
+
         $meeting = Meeting::current();
 
         // 1. One submission per Koperasi ID for this session.
