@@ -8,6 +8,7 @@ use App\Models\Membership;
 use App\Models\Shareholder;
 use App\Support\SpreadsheetReader;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
@@ -53,6 +54,48 @@ class AdminController extends Controller
         return response()->json(['status' => 'success', 'data' => [
             'venue_lat' => $m->venue_lat, 'venue_lng' => $m->venue_lng, 'radius_meters' => $m->radius_meters,
         ]]);
+    }
+
+    // Current submission-window settings for the check-in form.
+    public function getSubmission()
+    {
+        $m = Meeting::current();
+        return response()->json(['status' => 'success', 'data' => [
+            'submission_open' => $m->submission_open,
+            'accepting'       => $m->acceptingSubmissions(),
+            'opens_at'        => optional($m->opens_at)->format('Y-m-d\TH:i'),
+            'closes_at'       => optional($m->closes_at)->format('Y-m-d\TH:i'),
+        ]]);
+    }
+
+    // Open/close the form manually and/or set an opens_at..closes_at schedule.
+    // Times are interpreted in the app timezone (Asia/Kuala_Lumpur).
+    public function setSubmission(Request $request)
+    {
+        $data = $request->validate([
+            'submission_open' => ['nullable', 'boolean'],
+            'opens_at'        => ['nullable', 'date'],
+            'closes_at'       => ['nullable', 'date'],
+        ]);
+
+        $m = Meeting::current();
+
+        if ($request->has('submission_open') && $data['submission_open'] !== null) {
+            $m->submission_open = (bool) $data['submission_open'];
+        }
+        if ($request->has('opens_at')) {
+            $m->opens_at = $data['opens_at'] ? Carbon::parse($data['opens_at']) : null;
+        }
+        if ($request->has('closes_at')) {
+            $m->closes_at = $data['closes_at'] ? Carbon::parse($data['closes_at']) : null;
+        }
+
+        if ($m->opens_at && $m->closes_at && $m->closes_at->lte($m->opens_at)) {
+            return response()->json(['status' => 'error', 'message' => 'Close time must be after open time.'], 422);
+        }
+
+        $m->save();
+        return $this->getSubmission();
     }
 
     public function attendanceList()

@@ -13,7 +13,11 @@ class CheckinController extends Controller
 {
     public function show()
     {
-        return view('checkin');
+        $m = Meeting::current();
+        return view('checkin', [
+            'open'         => $m->acceptingSubmissions(),
+            'closedReason' => $m->closedReason(),
+        ]);
     }
 
     // Autocomplete for the check-in form: match roster names and return the
@@ -59,6 +63,11 @@ class CheckinController extends Controller
         $data['name'] = $member->name;
 
         $meeting = Meeting::current();
+
+        // Submission window: reject if the form is closed or outside its schedule.
+        if (!$meeting->acceptingSubmissions()) {
+            return response()->json(['status' => 'error', 'message' => $meeting->closedReason()], 422);
+        }
 
         // 1. One submission per Koperasi ID for this session.
         if (Attendance::where('meeting_id', $meeting->id)->where('koperasi_id', $data['koperasi_id'])->exists()) {

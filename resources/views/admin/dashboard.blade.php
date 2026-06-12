@@ -33,6 +33,33 @@
         <p class="text-xs text-gray-400 mt-2">Set this at the venue. Submissions are only accepted within the radius of this point.</p>
     </div>
 
+    <!-- Submission control -->
+    <div class="bg-white p-4 rounded-lg shadow mb-6">
+        <div class="flex flex-wrap gap-3 justify-between items-center">
+            <div class="flex items-center gap-3">
+                <span id="subBadge" class="text-sm font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-500">Loading…</span>
+                <h2 class="text-lg font-semibold">Check-in form</h2>
+            </div>
+            <button id="subToggle" class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-gray-400">…</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mt-4 pt-4 border-t">
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Opens at (optional)</label>
+                <input id="opensAt" type="datetime-local" class="w-full p-2 border border-gray-300 rounded">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Closes at (optional)</label>
+                <input id="closesAt" type="datetime-local" class="w-full p-2 border border-gray-300 rounded">
+            </div>
+            <div class="flex gap-2">
+                <button id="schedSave" class="bg-brand-600 text-white px-4 py-2 rounded hover:bg-brand-700 text-sm">Save schedule</button>
+                <button id="schedClear" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 text-sm">Clear</button>
+            </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">The form accepts submissions only when it's <b>Open</b> and (if a schedule is set) within the time window. Times use Kuala Lumpur time.</p>
+        <div id="subMsg" class="text-sm mt-2 min-h-5"></div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- QR -->
         <div class="bg-white p-6 rounded-lg shadow text-center">
@@ -247,9 +274,62 @@
     }
     document.getElementById('memberSearch').addEventListener('input', renderPending);
 
+    // ---- Submission window control ----
+    function renderSubmission(d, setInputs = true) {
+        const badge = document.getElementById('subBadge');
+        const toggle = document.getElementById('subToggle');
+        if (d.accepting) {
+            badge.textContent = '● Open'; badge.className = 'text-sm font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700';
+        } else {
+            badge.textContent = d.submission_open ? '● Closed (schedule)' : '● Closed';
+            badge.className = 'text-sm font-semibold px-3 py-1 rounded-full bg-red-100 text-red-700';
+        }
+        if (d.submission_open) {
+            toggle.textContent = 'Close form now'; toggle.dataset.next = '0';
+            toggle.className = 'px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700';
+        } else {
+            toggle.textContent = 'Open form'; toggle.dataset.next = '1';
+            toggle.className = 'px-4 py-2 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700';
+        }
+        if (setInputs) {
+            document.getElementById('opensAt').value = d.opens_at || '';
+            document.getElementById('closesAt').value = d.closes_at || '';
+        }
+    }
+    async function loadSubmission(setInputs = true) {
+        const res = await window.apiFetch('/admin/submission');
+        const { data } = await res.json();
+        renderSubmission(data, setInputs);
+    }
+    document.getElementById('subToggle').addEventListener('click', async (e) => {
+        const next = e.currentTarget.dataset.next === '1';
+        const res = await window.apiFetch('/admin/submission', { method: 'POST', body: JSON.stringify({ submission_open: next }) });
+        const { data } = await res.json();
+        renderSubmission(data);
+        document.getElementById('subMsg').textContent = next ? 'Form opened.' : 'Form closed.';
+        document.getElementById('subMsg').className = 'text-sm mt-2 ' + (next ? 'text-green-600' : 'text-red-600');
+    });
+    document.getElementById('schedSave').addEventListener('click', async () => {
+        const msg = document.getElementById('subMsg');
+        const res = await window.apiFetch('/admin/submission', { method: 'POST', body: JSON.stringify({
+            opens_at: document.getElementById('opensAt').value || '',
+            closes_at: document.getElementById('closesAt').value || '',
+        }) });
+        const json = await res.json();
+        if (!res.ok) { msg.textContent = json.message || 'Failed.'; msg.className = 'text-sm mt-2 text-red-600'; return; }
+        renderSubmission(json.data); msg.textContent = 'Schedule saved.'; msg.className = 'text-sm mt-2 text-green-600';
+    });
+    document.getElementById('schedClear').addEventListener('click', async () => {
+        const res = await window.apiFetch('/admin/submission', { method: 'POST', body: JSON.stringify({ opens_at: '', closes_at: '' }) });
+        const json = await res.json();
+        renderSubmission(json.data);
+        const msg = document.getElementById('subMsg'); msg.textContent = 'Schedule cleared.'; msg.className = 'text-sm mt-2 text-gray-500';
+    });
+
     loadVenue();
     loadList();
     loadRoster();
-    setInterval(() => { loadList(); loadRoster(); }, 10000);
+    loadSubmission();
+    setInterval(() => { loadList(); loadRoster(); loadSubmission(false); }, 10000);
 </script>
 @endpush

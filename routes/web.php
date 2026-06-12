@@ -27,6 +27,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/verify', [AdminController::class, 'verify']);
     Route::get('/admin/venue', [AdminController::class, 'getVenue']);
     Route::post('/admin/venue', [AdminController::class, 'setVenue']);
+    Route::get('/admin/submission', [AdminController::class, 'getSubmission']);
+    Route::post('/admin/submission', [AdminController::class, 'setSubmission']);
     Route::get('/admin/attendance', [AdminController::class, 'attendanceList']);
     Route::post('/admin/attendance/{id}', [AdminController::class, 'updateAttendance']);
     Route::delete('/admin/attendance/{id}', [AdminController::class, 'deleteAttendance']);

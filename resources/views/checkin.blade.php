@@ -13,6 +13,15 @@
             <p class="text-slate-500 text-sm mt-1">Start typing your name and pick yourself from the list.</p>
         </div>
 
+        @unless ($open)
+        <div class="text-center py-6">
+            <div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-red-600">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            </div>
+            <h2 class="text-lg font-semibold text-slate-900">Check-in is closed</h2>
+            <p class="text-slate-500 text-sm mt-1">{{ $closedReason }}</p>
+        </div>
+        @else
         <form id="form" class="space-y-4">
             <div class="relative">
                 <label class="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
@@ -34,11 +43,13 @@
             <button id="submitBtn" class="w-full bg-brand-600 text-white py-2.5 rounded-lg hover:bg-brand-700 active:bg-brand-800 font-semibold shadow-sm transition focus:ring-2 focus:ring-brand-500/40 outline-none">Submit</button>
             <p id="status" class="text-center text-sm"></p>
         </form>
+        @endunless
     </div>
 </div>
 @endsection
 
 @push('scripts')
+@if ($open)
 <script>
     // ---- Name autocomplete from the membership roster (fills the Koperasi ID) ----
     const nameInput = document.getElementById('name');
@@ -148,4 +159,5 @@
         }
     });
 </script>
+@endif
 @endpush
