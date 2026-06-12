@@ -3,17 +3,19 @@
 
 @section('content')
 <div class="max-w-5xl mx-auto p-4">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold">Attendance Dashboard</h1>
-        <div class="flex gap-2 items-center">
-            <span class="text-sm text-gray-500">{{ auth()->user()->username }} ({{ auth()->user()->role }})</span>
-            <a href="/admin/verify" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">Verify / Search</a>
-            <a href="/admin/upload" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm">Upload Roster</a>
+    <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Attendance Dashboard</h1>
+            <span class="text-xs text-slate-500">{{ auth()->user()->username }} · {{ auth()->user()->role }}</span>
+        </div>
+        <div class="flex flex-wrap gap-2 items-center">
+            <a href="/admin/verify" class="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 text-sm">Verify / Search</a>
+            <a href="/admin/upload" class="bg-brand-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-brand-700 text-sm">Upload Roster</a>
             @if (auth()->user()->isAdmin())
-                <a href="/admin/users" class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">Users</a>
+                <a href="/admin/users" class="bg-gray-200 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">Users</a>
             @endif
             <form method="POST" action="/logout">@csrf
-                <button class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">Logout</button>
+                <button class="bg-gray-200 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">Logout</button>
             </form>
         </div>
     </div>
@@ -41,11 +43,11 @@
 
         <!-- List -->
         <div class="bg-white p-6 rounded-lg shadow">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-wrap gap-2 justify-between items-center mb-4">
                 <h2 class="text-lg font-semibold">Submitted <span id="count" class="text-sm font-normal text-gray-500"></span></h2>
                 <div class="flex gap-2">
                     <a href="/admin/export" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm hover:bg-green-700">Download Excel</a>
-                    <button id="refreshBtn" class="bg-indigo-600 text-white px-3 py-1.5 rounded text-sm hover:bg-indigo-700">Refresh</button>
+                    <button id="refreshBtn" class="bg-brand-600 text-white px-3 py-1.5 rounded text-sm hover:bg-brand-700">Refresh</button>
                 </div>
             </div>
             <div class="overflow-x-auto max-h-96 overflow-y-auto">

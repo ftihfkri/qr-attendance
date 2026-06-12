@@ -3,12 +3,12 @@
 
 @section('content')
 <div class="max-w-3xl mx-auto p-4">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold">Upload Membership Roster</h1>
-        <div class="flex gap-2 items-center">
-            <a href="/admin" class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">← Dashboard</a>
+    <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Upload Membership Roster</h1>
+        <div class="flex flex-wrap gap-2 items-center">
+            <a href="/admin" class="bg-gray-200 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">← Dashboard</a>
             <form method="POST" action="/logout">@csrf
-                <button class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">Logout</button>
+                <button class="bg-gray-200 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">Logout</button>
             </form>
         </div>
     </div>
