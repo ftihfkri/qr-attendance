@@ -95,11 +95,18 @@
         const key = 'device-fp';
         let fp = localStorage.getItem(key);
         if (fp) return fp;
-        const parts = [navigator.userAgent, navigator.language, screen.width + 'x' + screen.height,
-            Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.hardwareConcurrency || ''].join('|');
-        let h = 0;
-        for (let i = 0; i < parts.length; i++) { h = (h * 31 + parts.charCodeAt(i)) >>> 0; }
-        fp = h.toString(16).padStart(8, '0');
+        // A random per-device ID — NOT derived from device attributes — so two
+        // identical phones (same model/OS/region) never collide. Persisted so the
+        // same browser keeps the same ID across visits.
+        if (window.crypto && crypto.randomUUID) {
+            fp = crypto.randomUUID();
+        } else if (window.crypto && crypto.getRandomValues) {
+            const b = new Uint8Array(16);
+            crypto.getRandomValues(b);
+            fp = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+        } else {
+            fp = Date.now().toString(16) + Math.random().toString(16).slice(2);
+        }
         localStorage.setItem(key, fp);
         return fp;
     }
