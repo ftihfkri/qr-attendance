@@ -3,7 +3,9 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CheckinController;
+use App\Http\Controllers\ElectionController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VotingController;
 use Illuminate\Support\Facades\Route;
 
 // ---- Public ----
@@ -20,6 +22,11 @@ Route::post('/register', [AuthController::class, 'register'])->middleware('throt
 Route::get('/checkin', [CheckinController::class, 'show']);
 Route::get('/checkin/members', [CheckinController::class, 'searchMembers'])->middleware('throttle:60,1'); // roster autocomplete
 Route::post('/checkin', [CheckinController::class, 'store'])->middleware('throttle:30,1'); // cap spam/enumeration
+
+// Public board-election ballot (members scan the QR to vote)
+Route::get('/vote/{token}', [VotingController::class, 'show']);
+Route::get('/vote/{token}/results', [VotingController::class, 'results'])->middleware('throttle:120,1');
+Route::post('/vote/{token}', [VotingController::class, 'vote'])->middleware('throttle:30,1');
 
 // ---- Authenticated (admin + staff share the same interface) ----
 Route::middleware('auth')->group(function () {
@@ -41,6 +48,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/memberships/upload', [AdminController::class, 'membershipUpload']);
     Route::get('/admin/roster', [AdminController::class, 'roster']);
     Route::post('/admin/roster/mark', [AdminController::class, 'markAttendance']);
+
+    // Board Election (staff + admin)
+    Route::get('/admin/election', [ElectionController::class, 'index']);
+    Route::get('/admin/election/results', [ElectionController::class, 'results']);
+    Route::get('/admin/election/candidates/search', [ElectionController::class, 'candidateSearch']);
+    Route::post('/admin/election/candidates', [ElectionController::class, 'addCandidate']);
+    Route::delete('/admin/election/candidates/{id}', [ElectionController::class, 'removeCandidate']);
+    Route::post('/admin/election/voting', [ElectionController::class, 'setVoting']);
 
     // ---- Admin role only: user management ----
     Route::middleware('role:admin')->group(function () {

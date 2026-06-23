@@ -46,6 +46,24 @@
             </table>
         </div>
     </div>
+
+    <!-- Manual check-in modal: email + phone required before marking attended -->
+    <div id="checkinModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-1">Check in member</h3>
+            <p id="ci_who" class="text-sm text-gray-500 mb-4"></p>
+            <input type="hidden" id="ci_id">
+            <div class="space-y-3">
+                <div><label class="block text-xs text-gray-600 mb-1">Email <span class="text-red-500">*</span></label><input id="ci_email" type="email" class="w-full p-2 border border-gray-300 rounded" placeholder="name@example.com"></div>
+                <div><label class="block text-xs text-gray-600 mb-1">Phone Number <span class="text-red-500">*</span></label><input id="ci_phone" type="tel" class="w-full p-2 border border-gray-300 rounded" placeholder="01x-xxxxxxx"></div>
+            </div>
+            <div id="ci_msg" class="text-sm mt-3"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="ci_cancel" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+                <button id="ci_save" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Check in</button>
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -96,15 +114,48 @@
     }
 
     async function mark(memberId, attend, name) {
-        if (!attend && !confirm(`Mark "${name}" as NOT attended? This removes their check-in.`)) return;
+        if (attend) {
+            // Manual check-in needs email + phone — capture them in the modal first.
+            const member = all.find(r => String(r.member_id) === String(memberId)) || { member_id: memberId, name };
+            openCheckin(member);
+            return;
+        }
+        if (!confirm(`Mark "${name}" as NOT attended? This removes their check-in.`)) return;
         const res = await window.apiFetch('/admin/roster/mark', {
             method: 'POST',
-            body: JSON.stringify({ member_id: memberId, attend }),
+            body: JSON.stringify({ member_id: memberId, attend: false }),
         });
         const data = await res.json();
         if (!res.ok) { alert(data.message || 'Failed.'); return; }
         await load();
     }
+
+    // ---- Manual check-in modal (email + phone required) ----
+    function openCheckin(member) {
+        document.getElementById('ci_id').value = member.member_id;
+        document.getElementById('ci_who').textContent = `${member.name ?? ''} · ${member.member_id}`;
+        document.getElementById('ci_email').value = member.email || '';
+        document.getElementById('ci_phone').value = member.phone || '';
+        document.getElementById('ci_msg').textContent = '';
+        const m = document.getElementById('checkinModal'); m.classList.remove('hidden'); m.classList.add('flex');
+        document.getElementById('ci_email').focus();
+    }
+    function closeCheckin() { const m = document.getElementById('checkinModal'); m.classList.add('hidden'); m.classList.remove('flex'); }
+    document.getElementById('ci_cancel').addEventListener('click', closeCheckin);
+    document.getElementById('ci_save').addEventListener('click', async () => {
+        const memberId = document.getElementById('ci_id').value;
+        const email = document.getElementById('ci_email').value.trim();
+        const phone = document.getElementById('ci_phone').value.trim();
+        const msg = document.getElementById('ci_msg');
+        if (!email || !phone) { msg.textContent = 'Email and phone number are required.'; msg.className = 'text-sm mt-3 text-red-600'; return; }
+        const btn = document.getElementById('ci_save'); btn.disabled = true; btn.textContent = '…';
+        const res = await window.apiFetch('/admin/roster/mark', { method: 'POST', body: JSON.stringify({ member_id: memberId, attend: true, email, phone_number: phone }) });
+        const data = await res.json();
+        btn.disabled = false; btn.textContent = 'Check in';
+        if (!res.ok) { msg.textContent = data.message || 'Failed.'; msg.className = 'text-sm mt-3 text-red-600'; return; }
+        closeCheckin();
+        await load();
+    });
 
     async function load() {
         const res = await window.apiFetch('/admin/roster');

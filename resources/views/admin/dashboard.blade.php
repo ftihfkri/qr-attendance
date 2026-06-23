@@ -9,6 +9,7 @@
             <span class="text-xs text-slate-500">{{ auth()->user()->username }} · {{ auth()->user()->role }}</span>
         </div>
         <div class="flex flex-wrap gap-2 items-center">
+            <a href="/admin/election" class="bg-amber-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-amber-600 text-sm">🗳 Board Election</a>
             <a href="/admin/verify" class="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 text-sm">Verify / Search</a>
             <a href="/admin/upload" class="bg-brand-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-brand-700 text-sm">Upload Roster</a>
             @if (auth()->user()->isAdmin())
@@ -117,6 +118,24 @@
             <div class="flex justify-end gap-2 mt-4">
                 <button id="editCancel" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
                 <button id="editSave" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual check-in modal: email + phone required before marking attended -->
+    <div id="checkinModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-1">Check in member</h3>
+            <p id="ci_who" class="text-sm text-gray-500 mb-4"></p>
+            <input type="hidden" id="ci_id">
+            <div class="space-y-3">
+                <div><label class="block text-xs text-gray-600 mb-1">Email <span class="text-red-500">*</span></label><input id="ci_email" type="email" class="w-full p-2 border border-gray-300 rounded" placeholder="name@example.com"></div>
+                <div><label class="block text-xs text-gray-600 mb-1">Phone Number <span class="text-red-500">*</span></label><input id="ci_phone" type="tel" class="w-full p-2 border border-gray-300 rounded" placeholder="01x-xxxxxxx"></div>
+            </div>
+            <div id="ci_msg" class="text-sm mt-3"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button id="ci_cancel" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+                <button id="ci_save" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Check in</button>
             </div>
         </div>
     </div>
@@ -261,18 +280,40 @@
             <span class="truncate"><span class="font-medium">${esc(r.name)}</span> <span class="text-gray-400 text-sm">${esc(r.member_id)}</span></span>
             <button class="attend-btn shrink-0 bg-green-600 text-white text-xs px-3 py-1 rounded hover:bg-green-700" data-id="${esc(r.member_id)}">Check in</button>
         </div>`).join('');
-        box.querySelectorAll('.attend-btn').forEach(b => b.addEventListener('click', () => quickCheckIn(b.dataset.id, b)));
-    }
-    async function quickCheckIn(memberId, btn) {
-        const msg = document.getElementById('quickMsg');
-        btn.disabled = true; btn.textContent = '…';
-        const res = await window.apiFetch('/admin/roster/mark', { method: 'POST', body: JSON.stringify({ member_id: memberId, attend: true }) });
-        const data = await res.json();
-        if (!res.ok) { msg.textContent = data.message || 'Failed.'; msg.className = 'text-sm mt-2 text-red-600'; btn.disabled = false; btn.textContent = 'Check in'; return; }
-        msg.textContent = data.message; msg.className = 'text-sm mt-2 text-green-600';
-        await loadRoster(); await loadList();
+        box.querySelectorAll('.attend-btn').forEach(b => b.addEventListener('click', () => {
+            const member = roster.find(r => String(r.member_id) === b.dataset.id);
+            openCheckin(member || { member_id: b.dataset.id, name: b.dataset.id });
+        }));
     }
     document.getElementById('memberSearch').addEventListener('input', renderPending);
+
+    // ---- Manual check-in: capture email + phone (required) before marking attended ----
+    function openCheckin(member) {
+        document.getElementById('ci_id').value = member.member_id;
+        document.getElementById('ci_who').textContent = `${member.name ?? ''} · ${member.member_id}`;
+        document.getElementById('ci_email').value = member.email || '';
+        document.getElementById('ci_phone').value = member.phone || '';
+        document.getElementById('ci_msg').textContent = '';
+        const m = document.getElementById('checkinModal'); m.classList.remove('hidden'); m.classList.add('flex');
+        document.getElementById('ci_email').focus();
+    }
+    function closeCheckin() { const m = document.getElementById('checkinModal'); m.classList.add('hidden'); m.classList.remove('flex'); }
+    document.getElementById('ci_cancel').addEventListener('click', closeCheckin);
+    document.getElementById('ci_save').addEventListener('click', async () => {
+        const memberId = document.getElementById('ci_id').value;
+        const email = document.getElementById('ci_email').value.trim();
+        const phone = document.getElementById('ci_phone').value.trim();
+        const msg = document.getElementById('ci_msg');
+        if (!email || !phone) { msg.textContent = 'Email and phone number are required.'; msg.className = 'text-sm mt-3 text-red-600'; return; }
+        const btn = document.getElementById('ci_save'); btn.disabled = true; btn.textContent = '…';
+        const res = await window.apiFetch('/admin/roster/mark', { method: 'POST', body: JSON.stringify({ member_id: memberId, attend: true, email, phone_number: phone }) });
+        const data = await res.json();
+        btn.disabled = false; btn.textContent = 'Check in';
+        if (!res.ok) { msg.textContent = data.message || 'Failed.'; msg.className = 'text-sm mt-3 text-red-600'; return; }
+        closeCheckin();
+        const qm = document.getElementById('quickMsg'); qm.textContent = data.message; qm.className = 'text-sm mt-2 text-green-600';
+        await loadRoster(); await loadList();
+    });
 
     // ---- Submission window control ----
     function renderSubmission(d, setInputs = true) {

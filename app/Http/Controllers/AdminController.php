@@ -333,9 +333,13 @@ class AdminController extends Controller
             ->get(['id', 'koperasi_id', 'name', 'time', 'method'])
             ->keyBy('koperasi_id');
 
+        // Known contact details (for prefilling the manual check-in form).
+        $contacts = Shareholder::get(['koperasi_id', 'email', 'phone_number'])->keyBy('koperasi_id');
+
         $rows = [];
         foreach (Membership::orderBy('name')->get(['name', 'member_id']) as $member) {
             $a = $attended->get($member->member_id);
+            $c = $contacts->get($member->member_id);
             $rows[] = [
                 'member_id' => $member->member_id,
                 'name'      => $a->name ?? $member->name,
@@ -343,6 +347,8 @@ class AdminController extends Controller
                 'time'      => $a->time ?? null,
                 'method'    => $a->method ?? null,
                 'in_roster' => true,
+                'email'     => $c->email ?? null,
+                'phone'     => $c->phone_number ?? null,
             ];
             if ($a) {
                 $attended->forget($member->member_id);
@@ -351,6 +357,7 @@ class AdminController extends Controller
 
         // Walk-ins / ad-hoc IDs that attended but aren't on the roster.
         foreach ($attended as $a) {
+            $c = $contacts->get($a->koperasi_id);
             $rows[] = [
                 'member_id' => $a->koperasi_id,
                 'name'      => $a->name,
@@ -358,6 +365,8 @@ class AdminController extends Controller
                 'time'      => $a->time,
                 'method'    => $a->method,
                 'in_roster' => false,
+                'email'     => $c->email ?? null,
+                'phone'     => $c->phone_number ?? null,
             ];
         }
 
@@ -369,9 +378,11 @@ class AdminController extends Controller
     public function markAttendance(Request $request)
     {
         $data = $request->validate([
-            'member_id' => ['required', 'string', 'max:100'],
-            'attend'    => ['required', 'boolean'],
-            'name'      => ['nullable', 'string', 'max:150'],
+            'member_id'    => ['required', 'string', 'max:100'],
+            'attend'       => ['required', 'boolean'],
+            'name'         => ['nullable', 'string', 'max:150'],
+            'email'        => ['nullable', 'email', 'max:150'],
+            'phone_number' => ['nullable', 'string', 'max:50'],
         ]);
 
         $m = Meeting::current();
@@ -382,6 +393,13 @@ class AdminController extends Controller
             return response()->json(['status' => 'success', 'message' => 'Marked as not attended.']);
         }
 
+        // Manual check-in requires the member's email and phone number.
+        $email = trim((string) ($data['email'] ?? ''));
+        $phone = trim((string) ($data['phone_number'] ?? ''));
+        if ($email === '' || $phone === '') {
+            return response()->json(['status' => 'error', 'message' => 'Email and phone number are required to check this member in.'], 422);
+        }
+
         if (Attendance::where('meeting_id', $m->id)->where('koperasi_id', $memberId)->exists()) {
             return response()->json(['status' => 'success', 'message' => 'Already checked in.']);
         }
@@ -389,17 +407,17 @@ class AdminController extends Controller
         $membership = Membership::where('member_id', $memberId)->first();
         $name = $membership->name ?? ($data['name'] ?? $memberId);
 
-        DB::transaction(function () use ($m, $memberId, $name) {
-            $shareholder = Shareholder::firstOrCreate(
+        DB::transaction(function () use ($m, $memberId, $name, $email, $phone) {
+            $shareholder = Shareholder::updateOrCreate(
                 ['koperasi_id' => $memberId],
-                ['name' => $name, 'phone_number' => '']
+                ['name' => $name, 'phone_number' => $phone, 'email' => $email]
             );
             Attendance::create([
                 'meeting_id'         => $m->id,
                 'shareholder_id'     => $shareholder->id,
                 'koperasi_id'        => $memberId,
                 'name'               => $name,
-                'phone_number'       => $shareholder->phone_number ?? '',
+                'phone_number'       => $phone,
                 'date'               => now()->format('Y-m-d'),
                 'time'               => now()->format('H:i:s'),
                 'device_fingerprint' => 'manual:' . $memberId,
