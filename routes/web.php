@@ -25,6 +25,7 @@ Route::post('/checkin', [CheckinController::class, 'store'])->middleware('thrott
 
 // Public board-election ballot (members scan the QR to vote)
 Route::get('/vote/{token}', [VotingController::class, 'show']);
+Route::get('/vote/{token}/voters', [VotingController::class, 'voterSearch'])->middleware('throttle:60,1'); // name autocomplete
 Route::get('/vote/{token}/results', [VotingController::class, 'results'])->middleware('throttle:120,1');
 Route::post('/vote/{token}', [VotingController::class, 'vote'])->middleware('throttle:30,1');
 
@@ -56,6 +57,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/election/candidates', [ElectionController::class, 'addCandidate']);
     Route::delete('/admin/election/candidates/{id}', [ElectionController::class, 'removeCandidate']);
     Route::post('/admin/election/voting', [ElectionController::class, 'setVoting']);
+    Route::post('/admin/election/clear', [ElectionController::class, 'clear']);
 
     // ---- Admin role only: user management ----
     Route::middleware('role:admin')->group(function () {

@@ -161,4 +161,28 @@ class ElectionController extends Controller
             'meeting' => $this->meetingJson($m->fresh()),
         ]);
     }
+
+    // Clear the whole election (start fresh) — like the attendance "Clear list".
+    // Removes all votes + candidates and resets the voting window.
+    public function clear()
+    {
+        $m = Meeting::current();
+        $votes = Vote::where('meeting_id', $m->id)->count();
+
+        Vote::where('meeting_id', $m->id)->delete();
+        Candidate::where('meeting_id', $m->id)->delete();
+
+        $m->voting_open    = false;
+        $m->vote_token     = null;
+        $m->vote_starts_at = null;
+        $m->vote_ends_at   = null;
+        $m->vote_seats     = 1;
+        $m->save();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => "Election cleared. Removed {$votes} vote(s) and all candidates.",
+            'meeting' => $this->meetingJson($m->fresh()),
+        ]);
+    }
 }

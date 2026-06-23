@@ -102,6 +102,34 @@ class VotingController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Your vote has been recorded. Thank you!']);
     }
 
+    // GET /vote/{token}/voters — name autocomplete over this meeting's checked-in
+    // attendees (so a voter can type their name and have their Nombor Ahli filled in).
+    public function voterSearch(Request $request, string $token)
+    {
+        $meeting = $this->meeting($token);
+        if (!$meeting) {
+            return response()->json(['data' => []]);
+        }
+        $q = trim((string) $request->query('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json(['data' => []]);
+        }
+
+        $rows = Attendance::where('meeting_id', $meeting->id)
+            ->where(function ($sq) use ($q) {
+                $sq->where('name', 'like', "%{$q}%")
+                   ->orWhere('koperasi_id', 'like', "%{$q}%");
+            })
+            ->orderBy('name')
+            ->limit(8)
+            ->get(['name', 'koperasi_id'])
+            ->unique('koperasi_id')
+            ->values()
+            ->map(fn ($a) => ['name' => $a->name, 'member_id' => $a->koperasi_id]);
+
+        return response()->json(['data' => $rows]);
+    }
+
     // GET /vote/{token}/results — live tally for polling (public).
     public function results(string $token)
     {

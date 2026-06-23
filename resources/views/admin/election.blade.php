@@ -4,9 +4,12 @@
 @section('content')
 <div class="max-w-5xl mx-auto p-4">
     <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
-        <div>
-            <h1 class="text-xl sm:text-2xl font-bold tracking-tight">🗳 Board Election</h1>
-            <span id="votingStatus" class="text-xs text-slate-500">Loading…</span>
+        <div class="flex items-center gap-3">
+            <img src="{{ asset('images/kop-ssb-logo.png') }}" alt="KOP-SSB" class="h-10 w-auto">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold tracking-tight">🗳 Board Election</h1>
+                <span id="votingStatus" class="text-xs text-slate-500">Loading…</span>
+            </div>
         </div>
         <a href="/admin" class="bg-gray-200 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">← Dashboard</a>
     </div>
@@ -65,6 +68,9 @@
                 </div>
                 <div id="resultBars" class="space-y-3"></div>
                 <div id="winnerBanner" class="hidden mt-4 bg-green-50 border border-green-300 rounded-lg px-4 py-3 text-sm text-green-800"></div>
+                <div class="mt-4 pt-3 border-t text-right">
+                    <button id="clearBtn" class="text-red-500 text-xs hover:underline">Clear election (start fresh)</button>
+                </div>
             </div>
         </div>
     </div>
@@ -177,7 +183,14 @@
         document.getElementById('autoClose').textContent =
             (m.vote_ends_at && m.voting_active) ? 'Auto-closes at ' + m.vote_ends_at.replace('T', ' ') : '';
 
-        if (m.vote_token) renderQR(m.vote_token);
+        if (m.vote_token) {
+            renderQR(m.vote_token);
+        } else {
+            lastToken = null;
+            document.getElementById('qrcode').innerHTML = '';
+            document.getElementById('voteUrl').textContent = '';
+            document.getElementById('qrHint').classList.remove('hidden');
+        }
 
         // results bars
         document.getElementById('resultMeta').textContent = `${tally.total_votes} votes · ${eligible_voters} eligible`;
@@ -202,6 +215,17 @@
             banner.classList.add('hidden');
         }
     }
+
+    // ---- Clear election (start fresh) — like the attendance Clear list ----
+    document.getElementById('clearBtn').addEventListener('click', async () => {
+        if (!confirm('Clear the entire election? This removes ALL candidates and votes and resets the voting window. This cannot be undone.')) return;
+        const res = await window.apiFetch('/admin/election/clear', { method: 'POST' });
+        const data = await res.json();
+        const msg = document.getElementById('voteMsg');
+        msg.textContent = data.message || ''; msg.className = 'text-sm mt-2 ' + (res.ok ? 'text-green-600' : 'text-red-600');
+        if (res.ok) { document.getElementById('duration').value = ''; document.getElementById('seats').value = 1; }
+        await loadResults(); await loadPool();
+    });
 
     loadResults();
     loadPool();
