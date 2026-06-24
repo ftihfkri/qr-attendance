@@ -46,6 +46,7 @@
                     <button id="closeBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm hidden">■ Close Voting</button>
                     <button id="saveBtn" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 text-sm">Save seats/timer</button>
                     <a id="liveLink" href="#" target="_blank" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 text-sm hidden">Open live page ↗</a>
+                    <a id="stationLink" href="#" target="_blank" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 text-sm hidden">Open voting station ↗</a>
                 </div>
                 <p id="autoClose" class="text-xs text-gray-500 mt-2"></p>
                 <div id="voteMsg" class="text-sm mt-2 min-h-5"></div>
@@ -144,6 +145,7 @@
         const url = window.location.origin + '/vote/' + token;
         document.getElementById('voteUrl').textContent = url;
         document.getElementById('liveLink').href = url + '?display=1';
+        document.getElementById('stationLink').href = url + '?station=1';
         document.getElementById('qrHint').classList.add('hidden');
         if (token !== lastToken) {
             document.getElementById('qrcode').innerHTML = '';
@@ -179,6 +181,7 @@
         document.getElementById('openBtn').classList.toggle('hidden', m.voting_active);
         document.getElementById('closeBtn').classList.toggle('hidden', !m.voting_active);
         document.getElementById('liveLink').classList.toggle('hidden', !m.vote_token);
+        document.getElementById('stationLink').classList.toggle('hidden', !m.vote_token);
         if (document.activeElement?.id !== 'seats') document.getElementById('seats').value = m.vote_seats || 1;
         document.getElementById('autoClose').textContent =
             (m.vote_ends_at && m.voting_active) ? 'Auto-closes at ' + m.vote_ends_at.replace('T', ' ') : '';

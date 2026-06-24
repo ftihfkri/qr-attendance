@@ -53,6 +53,7 @@ class VotingController extends Controller
             'token'      => $token,
             'candidates' => $candidates,
             'display'    => $request->boolean('display'),
+            'station'    => $request->boolean('station'),  // staffed kiosk: show "next member" reset
         ]);
     }
 

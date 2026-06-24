@@ -133,6 +133,10 @@
                     <h2 class="text-lg font-semibold text-slate-900">Vote recorded</h2>
                     <p class="text-slate-500 text-sm mt-1">Thank you for voting. Live results are shown on the main screen.</p>
                 </div>
+                @if ($station)
+                <!-- Staffed voting station only (opened with ?station=1) — not shown on members' own phones. -->
+                <button id="nextVoterBtn" class="w-full mt-1 bg-emerald-600 text-white py-2.5 rounded-lg hover:bg-emerald-700 active:bg-emerald-800 font-semibold shadow-sm transition">➕ Vote for the next member</button>
+                @endif
             </div>
         </div>
         <p class="text-center text-[11px] text-slate-400 mt-4">© KOP-SSB · Secure ballot — one vote per member</p>
@@ -359,6 +363,20 @@
         localStorage.setItem(key, fp);
         return fp;
     }
+
+    // Staffed-station support: reset the ballot for the next member.
+    document.getElementById('nextVoterBtn')?.addEventListener('click', () => {
+        document.getElementById('name').value = '';
+        document.getElementById('koperasi_id').value = '';
+        document.querySelectorAll('[data-custom]').forEach(i => i.value = '');
+        const picked = document.querySelector('input[name="candidate"]:checked');
+        if (picked) picked.checked = false;
+        const s = document.getElementById('status'); if (s) s.textContent = '';
+        const b = document.getElementById('voteBtn'); if (b) b.disabled = false;
+        document.getElementById('thanks').classList.add('hidden');
+        document.getElementById('ballot').classList.remove('hidden');
+        document.getElementById('name').focus();
+    });
 
     const btn = document.getElementById('voteBtn');
     if (btn) btn.addEventListener('click', async () => {
