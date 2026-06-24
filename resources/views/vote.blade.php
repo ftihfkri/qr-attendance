@@ -35,7 +35,7 @@
             <div class="bg-white rounded-2xl p-2 shadow-xl kop-float shrink-0"><img src="{{ $logo }}" alt="KOP-SSB" class="h-12 sm:h-16 w-auto"></div>
             <div class="min-w-0">
                 <div class="text-[10px] sm:text-xs uppercase tracking-[0.25em] text-emerald-300/80">Koperasi Kakitangan Sabah Softwoods Berhad</div>
-                <h1 class="text-2xl sm:text-4xl font-extrabold leading-tight truncate">🗳 {{ $meeting->title ?? 'Board Election' }}</h1>
+                <h1 class="text-2xl sm:text-4xl font-extrabold leading-tight truncate">🗳 Board Election</h1>
             </div>
         </div>
         <div class="flex items-center gap-3 shrink-0">
@@ -93,7 +93,7 @@
             <div class="text-center mb-6">
                 <img src="{{ $logo }}" alt="KOP-SSB" class="h-16 w-auto mx-auto mb-3">
                 <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-700/70 mb-1">Koperasi Kakitangan Sabah Softwoods Berhad</div>
-                <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ $meeting->title ?? 'Board Election' }}</h1>
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">Board Election</h1>
                 <p class="text-slate-500 text-sm mt-1">Find your name, then choose one candidate.</p>
             </div>
 
@@ -229,10 +229,10 @@
 
     // Results bars are built once and then UPDATED IN PLACE every poll (widths,
     // counts, ranking) — so they animate smoothly instead of flickering/rebuilding.
-    let barEls = {}, builtKey = '';
+    let barEls = {}, builtKey = '', lastOrder = '';
     function renderBars(cands) {
         const box = document.getElementById('dBars');
-        if (!cands.length) { box.innerHTML = '<div class="text-center text-emerald-200/60 py-10 text-lg">Waiting for the first vote…</div>'; builtKey = ''; barEls = {}; return; }
+        if (!cands.length) { box.innerHTML = '<div class="text-center text-emerald-200/60 py-10 text-lg">Waiting for the first vote…</div>'; builtKey = ''; lastOrder = ''; barEls = {}; return; }
         const key = cands.map(c => c.candidate_id).slice().sort((a, b) => a - b).join(',');
         if (key !== builtKey) {
             box.innerHTML = cands.map(c => `
@@ -258,7 +258,9 @@
                 barEls[c.candidate_id] = { row, rank: row.querySelector('.b-rank'), crown: row.querySelector('.b-crown'), vt: row.querySelector('.b-vt'), pct: row.querySelector('.b-pct'), fill: row.querySelector('.b-fill') };
             });
             builtKey = key;
+            lastOrder = cands.map(c => c.candidate_id).join(','); // DOM already in this order
         }
+        // Update values in place — setting the same text/width again does not flicker.
         cands.forEach((c, i) => {
             const el = barEls[c.candidate_id]; if (!el) return;
             const g = c.is_winner ? greens[0] : greens[(i + 1) % greens.length];
@@ -269,8 +271,13 @@
             el.fill.style.background = `linear-gradient(90deg,${g[0]},${g[1]})`;
             el.crown.classList.toggle('hidden', !c.is_winner);
             el.row.classList.toggle('kop-leader', (i === 0 && c.votes > 0) || c.is_winner);
-            box.appendChild(el.row); // keep DOM order matching the ranking
         });
+        // Only move DOM nodes when the RANKING actually changes (prevents per-poll flicker).
+        const order = cands.map(c => c.candidate_id).join(',');
+        if (order !== lastOrder) {
+            cands.forEach(c => { const el = barEls[c.candidate_id]; if (el) box.appendChild(el.row); });
+            lastOrder = order;
+        }
     }
 
     async function poll() {
