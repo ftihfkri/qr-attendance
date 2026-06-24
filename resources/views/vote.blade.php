@@ -18,7 +18,7 @@
     .kop-leader   { box-shadow:0 0 0 2px rgba(212,175,55,.65), 0 0 34px rgba(212,175,55,.30); }
     .kop-bar-fill { position:relative; overflow:hidden; transition:width .85s cubic-bezier(.22,1,.36,1); }
     .kop-bar-fill::after { content:''; position:absolute; inset:0; width:38%; background:linear-gradient(90deg,transparent,rgba(255,255,255,.40),transparent); animation:kopShimmer 2.3s linear infinite; }
-    .confetti-piece { position:fixed; top:-14px; width:10px; height:14px; border-radius:2px; z-index:60; animation:confettiFall linear forwards; }
+    .confetti-piece { position:fixed; top:-14px; width:10px; height:14px; border-radius:2px; z-index:90; animation:confettiFall linear forwards; }
 </style>
 @endpush
 
@@ -44,6 +44,7 @@
                 <span id="dStatusText">Loading…</span>
             </div>
             <button id="dCloseBtn" class="hidden px-4 py-2 rounded-full bg-red-500/90 hover:bg-red-600 text-white text-sm font-semibold border border-red-300/30 transition">■ Close Voting</button>
+            <button id="showWinnersBtn" class="hidden px-4 py-2 rounded-full bg-amber-400 text-emerald-950 text-sm font-bold hover:bg-amber-300 transition">🏆 Announce winners</button>
         </div>
     </div>
 
@@ -84,6 +85,15 @@
             <div id="dBars" class="space-y-4"></div>
             <div id="dWinner" class="hidden mt-6"></div>
         </div>
+    </div>
+
+    <!-- Full-screen winner announcement (shown when voting finishes) -->
+    <div id="winnerOverlay" class="hidden fixed inset-0 z-[70] kop-display-bg flex-col items-center justify-center text-center px-6">
+        <button id="winnerBack" class="absolute top-5 left-5 px-4 py-2 rounded-full bg-white/10 border border-white/20 text-white text-sm font-semibold hover:bg-white/20 transition">← Back to live results</button>
+        <img src="{{ $logo }}" alt="KOP-SSB" class="h-14 w-auto mb-5">
+        <div class="text-6xl sm:text-8xl mb-3">🏆</div>
+        <div id="woLabel" class="text-xs sm:text-sm uppercase tracking-[0.3em] text-amber-200 mb-8">Winners</div>
+        <div id="woCards" class="grid gap-6 w-full max-w-5xl"></div>
     </div>
 </div>
 @else
@@ -160,7 +170,30 @@
     const greens = [['#facc15','#f59e0b'],['#34d399','#10b981'],['#22d3ee','#0891b2'],['#a3e635','#65a30d'],['#5eead4','#0d9488'],['#86efac','#16a34a'],['#fcd34d','#d97706'],['#67e8f9','#0e7490']];
     const medals = ['🥇','🥈','🥉','🏅'];
     const VOTE_ENDS_AT = @json(optional($meeting->vote_ends_at)->toIso8601String());
-    let confettiFired = false;
+    let confettiFired = false, winnerShown = false, lastWinners = [], lastSeats = 1;
+
+    // Full-screen winner announcement.
+    function showWinnerOverlay(winners, seats) {
+        document.getElementById('woLabel').textContent = `Winner${winners.length > 1 ? 's' : ''} · ${seats} seat${seats > 1 ? 's' : ''}`;
+        const cards = document.getElementById('woCards');
+        cards.style.gridTemplateColumns = `repeat(${Math.min(winners.length, 4)},minmax(0,1fr))`;
+        cards.innerHTML = winners.map((c, i) => `
+            <div class="kop-pop bg-white/10 border border-amber-300/40 rounded-3xl p-6 sm:p-8" style="animation-delay:${i * 150}ms">
+                <div class="text-5xl sm:text-7xl mb-2">${medals[i] || '🏅'}</div>
+                <div class="text-2xl sm:text-4xl font-extrabold truncate">${esc(c.name)}</div>
+                <div class="text-emerald-100/80 mt-2 text-lg"><span class="text-3xl font-extrabold tabular-nums">${c.votes}</span> votes · ${c.percent}%</div>
+            </div>`).join('');
+        const o = document.getElementById('winnerOverlay');
+        o.classList.remove('hidden'); o.classList.add('flex');
+    }
+    document.getElementById('winnerBack').addEventListener('click', () => {
+        const o = document.getElementById('winnerOverlay');
+        o.classList.add('hidden'); o.classList.remove('flex');
+    });
+    // Re-open the announcement from the live page.
+    document.getElementById('showWinnersBtn').addEventListener('click', () => {
+        if (lastWinners.length) showWinnerOverlay(lastWinners, lastSeats);
+    });
 
     function fireConfetti() {
         const colors = ['#facc15','#34d399','#ffffff','#fcd34d','#10b981'];
@@ -204,9 +237,15 @@
     });
 
     // Top-N winner reveal (podium) — shown when voting is finished or all eligible voted.
+    let lastWinnersKey = '';
     function renderWinners(winners, seats, finished) {
         const w = document.getElementById('dWinner');
-        if (!winners.length) { w.classList.add('hidden'); return; }
+        if (!winners.length) { w.classList.add('hidden'); lastWinnersKey = ''; return; }
+        // Only rebuild when the winners actually change — otherwise the kop-pop
+        // animation would re-run on every 2s poll (the flicker).
+        const key = finished + '|' + seats + '|' + winners.map(c => c.candidate_id + ':' + c.votes).join(',');
+        if (key === lastWinnersKey) return;
+        lastWinnersKey = key;
         w.classList.remove('hidden');
         w.className = 'mt-7';
         const label = finished
@@ -306,7 +345,23 @@
         else if (allIn) winners = tally.candidates.filter(c => c.votes > 0).slice(0, seats);
         renderWinners(winners, seats, tally.voting_finished);
         document.getElementById('dTie').classList.toggle('hidden', !tally.tie_at_cutoff);
-        if (tally.voting_finished && !confettiFired && winners.length) { confettiFired = true; fireConfetti(); }
+
+        // Keep the latest winners so the "Announce winners" button can re-open the overlay.
+        lastWinners = winners; lastSeats = seats;
+        document.getElementById('showWinnersBtn').classList.toggle('hidden', !(tally.voting_finished && winners.length));
+
+        // Full-screen announcement when voting finishes (shown once; "back" dismisses it).
+        const overlay = document.getElementById('winnerOverlay');
+        if (tally.voting_finished && winners.length) {
+            if (!winnerShown) {
+                winnerShown = true;
+                showWinnerOverlay(winners, seats);
+                if (!confettiFired) { confettiFired = true; fireConfetti(); }
+            }
+        } else {
+            overlay.classList.add('hidden'); overlay.classList.remove('flex');
+            winnerShown = false;
+        }
     }
     poll(); setInterval(poll, 2000);
 @else
