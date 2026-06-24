@@ -98,6 +98,51 @@ class AdminController extends Controller
         return $this->getSubmission();
     }
 
+    // Current check-in form configuration (required fields + custom columns).
+    public function getFormConfig()
+    {
+        return response()->json(['status' => 'success', 'data' => Meeting::current()->formConfig()]);
+    }
+
+    // Save which fields are required and the custom columns (admin + staff).
+    public function setFormConfig(Request $request)
+    {
+        $data = $request->validate([
+            'phone_required'    => ['required', 'boolean'],
+            'email_required'    => ['required', 'boolean'],
+            'custom'            => ['array'],
+            'custom.*.label'    => ['required', 'string', 'max:60'],
+            'custom.*.required' => ['boolean'],
+        ]);
+
+        $custom = [];
+        $seen   = [];
+        foreach ($data['custom'] ?? [] as $f) {
+            $label = trim($f['label']);
+            if ($label === '') {
+                continue;
+            }
+            $key = \Illuminate\Support\Str::slug($label, '_') ?: 'field';
+            $base = $key;
+            $n = 1;
+            while (isset($seen[$key])) {
+                $key = $base . '_' . (++$n);
+            }
+            $seen[$key] = true;
+            $custom[] = ['key' => $key, 'label' => $label, 'required' => (bool) ($f['required'] ?? false)];
+        }
+
+        $m = Meeting::current();
+        $m->form_config = [
+            'phone_required' => (bool) $data['phone_required'],
+            'email_required' => (bool) $data['email_required'],
+            'custom'         => $custom,
+        ];
+        $m->save();
+
+        return response()->json(['status' => 'success', 'message' => 'Form settings saved.', 'data' => $m->formConfig()]);
+    }
+
     public function attendanceList()
     {
         $m = Meeting::current();
@@ -127,17 +172,27 @@ class AdminController extends Controller
             'Content-Disposition' => "attachment; filename=\"$filename\"",
         ];
 
-        $callback = function () use ($rows) {
+        $custom = $m->formConfig()['custom']; // [{key,label,required}]
+
+        $callback = function () use ($rows, $custom) {
             $out = fopen('php://output', 'w');
             // UTF-8 BOM so Excel reads accents correctly.
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['No', 'Full Name', 'Koperasi ID', 'Phone', 'Email', 'Date', 'Time', 'Method']);
+            $header = ['No', 'Full Name', 'Koperasi ID', 'Phone', 'Email', 'Date', 'Time', 'Method'];
+            foreach ($custom as $f) {
+                $header[] = $f['label'];
+            }
+            fputcsv($out, $header);
             $i = 1;
             foreach ($rows as $r) {
-                fputcsv($out, [
+                $line = [
                     $i++, $r->name, $r->koperasi_id, $r->phone_number,
                     optional($r->shareholder)->email, $r->date, $r->time, $r->method,
-                ]);
+                ];
+                foreach ($custom as $f) {
+                    $line[] = $r->custom_data[$f['key']] ?? '';
+                }
+                fputcsv($out, $line);
             }
             fclose($out);
         };

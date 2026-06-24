@@ -28,18 +28,25 @@
                 <input id="name" autocomplete="off" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition" placeholder="Type your name…">
                 <ul id="nameSuggestions" class="absolute z-20 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-56 overflow-y-auto hidden"></ul>
             </div>
-            <div>
+            <div class="relative">
                 <label class="block text-sm font-medium text-slate-700 mb-1.5">Nombor Ahli / Nombor Anggota</label>
-                <input id="koperasi_id" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
+                <input id="koperasi_id" autocomplete="off" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition" placeholder="Type your member number…">
+                <ul id="idSuggestions" class="absolute z-20 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-56 overflow-y-auto hidden"></ul>
             </div>
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone Number</label>
-                <input id="phone_number" type="tel" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Phone Number @unless($config['phone_required'])<span class="text-slate-400 font-normal">(optional)</span>@endunless</label>
+                <input id="phone_number" type="tel" @if($config['phone_required'])required @endif class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
             </div>
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-                <input id="email" type="email" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Email @unless($config['email_required'])<span class="text-slate-400 font-normal">(optional)</span>@endunless</label>
+                <input id="email" type="email" @if($config['email_required'])required @endif class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
             </div>
+            @foreach($config['custom'] as $f)
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">{{ $f['label'] }} @unless($f['required'])<span class="text-slate-400 font-normal">(optional)</span>@endunless</label>
+                <input data-custom="{{ $f['key'] }}" autocomplete="off" @if($f['required'])required @endif class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 outline-none transition">
+            </div>
+            @endforeach
             <button id="submitBtn" class="w-full bg-brand-600 text-white py-2.5 rounded-lg hover:bg-brand-700 active:bg-brand-800 font-semibold shadow-sm transition focus:ring-2 focus:ring-brand-500/40 outline-none">Submit</button>
             <p id="status" class="text-center text-sm"></p>
         </form>
@@ -75,45 +82,45 @@
 @push('scripts')
 @if ($open)
 <script>
-    // ---- Name autocomplete from the membership roster (fills the Koperasi ID) ----
+    // ---- Roster autocomplete: type EITHER name or Nombor Ahli; both get filled ----
     const nameInput = document.getElementById('name');
     const koperasiInput = document.getElementById('koperasi_id');
-    const suggestionsBox = document.getElementById('nameSuggestions');
 
     function escHtml(s) {
         return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
-    function hideSuggestions() { suggestionsBox.classList.add('hidden'); suggestionsBox.innerHTML = ''; }
 
-    let searchTimer = null;
-    nameInput.addEventListener('input', () => {
-        const q = nameInput.value.trim();
-        clearTimeout(searchTimer);
-        if (q.length < 2) { hideSuggestions(); return; }
-        searchTimer = setTimeout(async () => {
-            try {
-                const res = await fetch('/checkin/members?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
-                if (!res.ok) { hideSuggestions(); return; }
-                const { data } = await res.json();
-                if (!data || !data.length) { hideSuggestions(); return; }
-                suggestionsBox.innerHTML = data.map(m =>
-                    `<li class="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm flex justify-between gap-2" data-name="${escHtml(m.name)}" data-id="${escHtml(m.member_id)}">
-                        <span class="font-medium truncate">${escHtml(m.name)}</span>
-                        <span class="text-gray-400 shrink-0">${escHtml(m.member_id)}</span>
-                    </li>`).join('');
-                suggestionsBox.classList.remove('hidden');
-                suggestionsBox.querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
-                    nameInput.value = li.dataset.name;
-                    koperasiInput.value = li.dataset.id;
-                    hideSuggestions();
-                }));
-            } catch (e) { hideSuggestions(); }
-        }, 250);
-    });
-    // Hide the dropdown when clicking elsewhere.
-    document.addEventListener('click', (e) => {
-        if (e.target !== nameInput && !suggestionsBox.contains(e.target)) hideSuggestions();
-    });
+    function attachAutocomplete(input, box) {
+        const hide = () => { box.classList.add('hidden'); box.innerHTML = ''; };
+        let timer = null;
+        input.addEventListener('input', () => {
+            const q = input.value.trim();
+            clearTimeout(timer);
+            if (q.length < 2) { hide(); return; }
+            timer = setTimeout(async () => {
+                try {
+                    const res = await fetch('/checkin/members?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) { hide(); return; }
+                    const { data } = await res.json();
+                    if (!data || !data.length) { hide(); return; }
+                    box.innerHTML = data.map(m =>
+                        `<li class="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm flex justify-between gap-2" data-name="${escHtml(m.name)}" data-id="${escHtml(m.member_id)}">
+                            <span class="font-medium truncate">${escHtml(m.name)}</span>
+                            <span class="text-gray-400 shrink-0">${escHtml(m.member_id)}</span>
+                        </li>`).join('');
+                    box.classList.remove('hidden');
+                    box.querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
+                        nameInput.value = li.dataset.name;
+                        koperasiInput.value = li.dataset.id;
+                        hide();
+                    }));
+                } catch (e) { hide(); }
+            }, 250);
+        });
+        document.addEventListener('click', (e) => { if (e.target !== input && !box.contains(e.target)) hide(); });
+    }
+    attachAutocomplete(nameInput, document.getElementById('nameSuggestions'));
+    attachAutocomplete(koperasiInput, document.getElementById('idSuggestions'));
 
     function deviceFingerprint() {
         const key = 'device-fp';
@@ -167,17 +174,18 @@
 
     document.getElementById('form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const form = e.target;
         const status = document.getElementById('status');
         const btn = document.getElementById('submitBtn');
+        // Native validation respects the per-field `required` set by the admin.
+        if (!form.checkValidity()) { form.reportValidity(); return; }
         const name = document.getElementById('name').value.trim();
         const koperasi_id = document.getElementById('koperasi_id').value.trim();
         const phone_number = document.getElementById('phone_number').value.trim();
         const email = document.getElementById('email').value.trim();
-        if (!name || !koperasi_id || !phone_number || !email) {
-            status.textContent = 'Please fill in all fields (name, Nombor Ahli / Anggota, phone, email).';
-            status.className = 'text-center text-sm text-red-600';
-            return;
-        }
+        // Collect any custom columns the admin added.
+        const custom = {};
+        document.querySelectorAll('[data-custom]').forEach(inp => { custom[inp.dataset.custom] = inp.value.trim(); });
         btn.disabled = true; btn.textContent = 'Submitting…';
         status.textContent = 'Getting your location…';
         status.className = 'text-center text-sm text-gray-500';
@@ -186,7 +194,7 @@
             const res = await window.apiFetch('/checkin', {
                 method: 'POST',
                 body: JSON.stringify({
-                    name, koperasi_id, phone_number, email,
+                    name, koperasi_id, phone_number, email, custom,
                     device_fingerprint: deviceFingerprint(),
                     location_lat: loc.lat, location_lng: loc.lng,
                 }),

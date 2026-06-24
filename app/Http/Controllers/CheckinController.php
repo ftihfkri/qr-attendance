@@ -17,6 +17,7 @@ class CheckinController extends Controller
         return view('checkin', [
             'open'         => $m->acceptingSubmissions(),
             'closedReason' => $m->closedReason(),
+            'config'       => $m->formConfig(),
         ]);
     }
 
@@ -29,7 +30,9 @@ class CheckinController extends Controller
             return response()->json(['data' => []]);
         }
 
+        // Match by name OR member_id, so typing either one can fill the other.
         $matches = Membership::where('name', 'like', '%' . $q . '%')
+            ->orWhere('member_id', 'like', '%' . $q . '%')
             ->orderBy('name')
             ->limit(8)
             ->get(['name', 'member_id']);
@@ -39,15 +42,30 @@ class CheckinController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $meeting = Meeting::current();
+        $cfg     = $meeting->formConfig();
+
+        // Validation is driven by the form config: name + Nombor Ahli are always
+        // required; phone, email and custom columns are required only if configured.
+        $rules = [
             'name'               => ['required', 'string', 'max:150'],
             'koperasi_id'        => ['required', 'string', 'max:100'],
-            'phone_number'       => ['required', 'string', 'max:50'],
-            'email'              => ['required', 'email', 'max:150'],
+            'phone_number'       => [$cfg['phone_required'] ? 'required' : 'nullable', 'string', 'max:50'],
+            'email'              => [$cfg['email_required'] ? 'required' : 'nullable', 'email', 'max:150'],
             'device_fingerprint' => ['required', 'string', 'max:255'],
             'location_lat'       => ['nullable', 'numeric'],
             'location_lng'       => ['nullable', 'numeric'],
-        ]);
+        ];
+        foreach ($cfg['custom'] as $f) {
+            $rules['custom.' . $f['key']] = [$f['required'] ? 'required' : 'nullable', 'string', 'max:255'];
+        }
+        $data = $request->validate($rules);
+
+        // Collect custom column values (keyed by their config key).
+        $customData = [];
+        foreach ($cfg['custom'] as $f) {
+            $customData[$f['key']] = $request->input('custom.' . $f['key']);
+        }
 
         // 0. The name + Nombor Ahli must match the uploaded membership roster.
         //    Prevents checking in with someone else's ID (or a made-up one).
@@ -61,8 +79,6 @@ class CheckinController extends Controller
         }
         // Store the roster's canonical spelling so the list stays consistent.
         $data['name'] = $member->name;
-
-        $meeting = Meeting::current();
 
         // Submission window: reject if the form is closed or outside its schedule.
         if (!$meeting->acceptingSubmissions()) {
@@ -94,12 +110,12 @@ class CheckinController extends Controller
             }
         }
 
-        $attendance = DB::transaction(function () use ($data, $meeting, $distance) {
+        $attendance = DB::transaction(function () use ($data, $meeting, $distance, $customData) {
             $shareholder = Shareholder::updateOrCreate(
                 ['koperasi_id' => $data['koperasi_id']],
                 [
                     'name'         => $data['name'],
-                    'phone_number' => $data['phone_number'],
+                    'phone_number' => $data['phone_number'] ?? '',
                     'email'        => $data['email'] ?? null,
                 ]
             );
@@ -109,7 +125,7 @@ class CheckinController extends Controller
                 'shareholder_id'      => $shareholder->id,
                 'koperasi_id'         => $data['koperasi_id'],
                 'name'                => $data['name'],
-                'phone_number'        => $data['phone_number'],
+                'phone_number'        => $data['phone_number'] ?? '',
                 'date'                => now()->format('Y-m-d'),
                 'time'                => now()->format('H:i:s'),
                 'location_lat'        => $data['location_lat'] ?? null,
@@ -118,6 +134,7 @@ class CheckinController extends Controller
                 'status'              => 'present',
                 'distance_from_venue' => $distance,
                 'method'              => 'scanned',
+                'custom_data'         => $customData ?: null,
             ]);
         });
 

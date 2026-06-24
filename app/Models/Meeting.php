@@ -22,6 +22,7 @@ class Meeting extends Model
         'vote_seats',
         'vote_starts_at',
         'vote_ends_at',
+        'form_config',
     ];
 
     protected $casts = [
@@ -31,7 +32,21 @@ class Meeting extends Model
         'voting_open'     => 'boolean',
         'vote_starts_at'  => 'datetime',
         'vote_ends_at'    => 'datetime',
+        'form_config'     => 'array',
     ];
+
+    // Check-in form configuration with sensible defaults. Name + Nombor Ahli are
+    // always required (the roster name+ID match depends on them); phone, email and
+    // any custom columns are configurable. custom = [{key, label, required}].
+    public function formConfig(): array
+    {
+        $cfg = $this->form_config ?? [];
+        return [
+            'phone_required' => $cfg['phone_required'] ?? true,
+            'email_required' => $cfg['email_required'] ?? true,
+            'custom'         => array_values($cfg['custom'] ?? []),
+        ];
+    }
 
     public function candidates()
     {

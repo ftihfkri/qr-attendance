@@ -37,6 +37,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/venue', [AdminController::class, 'setVenue']);
     Route::get('/admin/submission', [AdminController::class, 'getSubmission']);
     Route::post('/admin/submission', [AdminController::class, 'setSubmission']);
+    Route::get('/admin/form-config', [AdminController::class, 'getFormConfig']);
+    Route::post('/admin/form-config', [AdminController::class, 'setFormConfig']);
     Route::get('/admin/attendance', [AdminController::class, 'attendanceList']);
     Route::post('/admin/attendance/{id}', [AdminController::class, 'updateAttendance']);
     Route::delete('/admin/attendance/{id}', [AdminController::class, 'deleteAttendance']);

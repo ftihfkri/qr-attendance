@@ -22,6 +22,11 @@ class Attendance extends Model
         'status',
         'distance_from_venue',
         'method',
+        'custom_data',
+    ];
+
+    protected $casts = [
+        'custom_data' => 'array',
     ];
 
     public function shareholder()

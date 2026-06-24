@@ -61,6 +61,28 @@
         <div id="subMsg" class="text-sm mt-2 min-h-5"></div>
     </div>
 
+    <!-- Check-in form fields settings (admin + staff) -->
+    <div class="bg-white p-4 rounded-lg shadow mb-6">
+        <h2 class="text-lg font-semibold mb-1">Check-in form fields</h2>
+        <p class="text-xs text-gray-400 mb-3">Full Name and Nombor Ahli are always required. Choose what else to ask for, and add your own columns.</p>
+        <div class="flex flex-wrap gap-5 mb-4">
+            <label class="inline-flex items-center gap-2 text-sm"><input id="fPhone" type="checkbox" class="w-4 h-4 accent-brand-600"> Phone number required</label>
+            <label class="inline-flex items-center gap-2 text-sm"><input id="fEmail" type="checkbox" class="w-4 h-4 accent-brand-600"> Email required</label>
+        </div>
+        <div class="border-t pt-3">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium">Custom columns</span>
+                <button id="addColBtn" class="text-brand-600 text-sm hover:underline">+ Add column</button>
+            </div>
+            <div id="customCols" class="space-y-2"></div>
+            <p class="text-xs text-gray-400 mt-2">Extra questions asked at check-in (e.g. Department, Table No.). Toggle “required” per column. Saved with each check-in and included in the Excel export.</p>
+        </div>
+        <div class="flex items-center gap-3 mt-4">
+            <button id="formSave" class="bg-brand-600 text-white px-4 py-2 rounded hover:bg-brand-700 text-sm">Save form settings</button>
+            <span id="formMsg" class="text-sm min-h-5"></span>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- QR -->
         <div class="bg-white p-6 rounded-lg shadow text-center">
@@ -393,10 +415,51 @@
         const msg = document.getElementById('subMsg'); msg.textContent = 'Schedule cleared.'; msg.className = 'text-sm mt-2 text-gray-500';
     });
 
+    // ---- Check-in form fields settings (required toggles + custom columns) ----
+    function colRow(label = '', required = false) {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex items-center gap-2 col-row';
+        wrap.innerHTML = `
+            <input type="text" class="col-label flex-1 p-2 border border-gray-300 rounded text-sm" placeholder="Column label (e.g. Department)" value="${esc(label)}">
+            <label class="inline-flex items-center gap-1 text-xs text-gray-600 shrink-0"><input type="checkbox" class="col-req w-4 h-4 accent-brand-600" ${required ? 'checked' : ''}> required</label>
+            <button type="button" class="col-del text-red-500 text-sm shrink-0 px-2" title="Remove">✕</button>`;
+        wrap.querySelector('.col-del').addEventListener('click', () => wrap.remove());
+        return wrap;
+    }
+    async function loadFormConfig() {
+        const res = await window.apiFetch('/admin/form-config');
+        const { data } = await res.json();
+        document.getElementById('fPhone').checked = !!data.phone_required;
+        document.getElementById('fEmail').checked = !!data.email_required;
+        const box = document.getElementById('customCols'); box.innerHTML = '';
+        (data.custom || []).forEach(c => box.appendChild(colRow(c.label, c.required)));
+    }
+    document.getElementById('addColBtn').addEventListener('click', () => document.getElementById('customCols').appendChild(colRow()));
+    document.getElementById('formSave').addEventListener('click', async () => {
+        const custom = [...document.querySelectorAll('#customCols .col-row')].map(r => ({
+            label: r.querySelector('.col-label').value.trim(),
+            required: r.querySelector('.col-req').checked,
+        })).filter(c => c.label);
+        const msg = document.getElementById('formMsg');
+        const res = await window.apiFetch('/admin/form-config', {
+            method: 'POST',
+            body: JSON.stringify({
+                phone_required: document.getElementById('fPhone').checked,
+                email_required: document.getElementById('fEmail').checked,
+                custom,
+            }),
+        });
+        const data = await res.json();
+        msg.textContent = data.message || (res.ok ? 'Saved.' : 'Failed.');
+        msg.className = 'text-sm min-h-5 ' + (res.ok ? 'text-green-600' : 'text-red-600');
+        if (res.ok) loadFormConfig();
+    });
+
     loadVenue();
     loadList();
     loadRoster();
     loadSubmission();
+    loadFormConfig();
     setInterval(() => { loadList(); loadRoster(); loadSubmission(false); }, 10000);
 </script>
 @endpush
