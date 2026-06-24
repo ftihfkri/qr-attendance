@@ -152,8 +152,9 @@
             <p id="ci_who" class="text-sm text-gray-500 mb-4"></p>
             <input type="hidden" id="ci_id">
             <div class="space-y-3">
-                <div><label class="block text-xs text-gray-600 mb-1">Email <span class="text-red-500">*</span></label><input id="ci_email" type="email" class="w-full p-2 border border-gray-300 rounded" placeholder="name@example.com"></div>
-                <div><label class="block text-xs text-gray-600 mb-1">Phone Number <span class="text-red-500">*</span></label><input id="ci_phone" type="tel" class="w-full p-2 border border-gray-300 rounded" placeholder="01x-xxxxxxx"></div>
+                <div><label class="block text-xs text-gray-600 mb-1">Email <span id="ci_emailReq" class="text-red-500"></span></label><input id="ci_email" type="email" class="w-full p-2 border border-gray-300 rounded" placeholder="name@example.com"></div>
+                <div><label class="block text-xs text-gray-600 mb-1">Phone Number <span id="ci_phoneReq" class="text-red-500"></span></label><input id="ci_phone" type="tel" class="w-full p-2 border border-gray-300 rounded" placeholder="01x-xxxxxxx"></div>
+                <div id="ci_custom" class="space-y-3"></div>
             </div>
             <div id="ci_msg" class="text-sm mt-3"></div>
             <div class="flex justify-end gap-2 mt-4">
@@ -335,12 +336,17 @@
     }
     document.getElementById('memberSearch').addEventListener('input', renderPending);
 
-    // ---- Manual check-in: capture email + phone (required) before marking attended ----
+    // ---- Manual check-in: fields follow the "Check-in form fields" settings ----
     function openCheckin(member) {
         document.getElementById('ci_id').value = member.member_id;
         document.getElementById('ci_who').textContent = `${member.name ?? ''} · ${member.member_id}`;
         document.getElementById('ci_email').value = member.email || '';
         document.getElementById('ci_phone').value = member.phone || '';
+        document.getElementById('ci_emailReq').textContent = formCfg.email_required ? '*' : '';
+        document.getElementById('ci_phoneReq').textContent = formCfg.phone_required ? '*' : '';
+        // Custom columns (optional on the staff path).
+        document.getElementById('ci_custom').innerHTML = (formCfg.custom || []).map(f =>
+            `<div><label class="block text-xs text-gray-600 mb-1">${esc(f.label)}</label><input data-cic="${esc(f.key)}" class="w-full p-2 border border-gray-300 rounded"></div>`).join('');
         document.getElementById('ci_msg').textContent = '';
         const m = document.getElementById('checkinModal'); m.classList.remove('hidden'); m.classList.add('flex');
         document.getElementById('ci_email').focus();
@@ -352,9 +358,12 @@
         const email = document.getElementById('ci_email').value.trim();
         const phone = document.getElementById('ci_phone').value.trim();
         const msg = document.getElementById('ci_msg');
-        if (!email || !phone) { msg.textContent = 'Email and phone number are required.'; msg.className = 'text-sm mt-3 text-red-600'; return; }
+        if (formCfg.email_required && !email) { msg.textContent = 'Email is required.'; msg.className = 'text-sm mt-3 text-red-600'; return; }
+        if (formCfg.phone_required && !phone) { msg.textContent = 'Phone number is required.'; msg.className = 'text-sm mt-3 text-red-600'; return; }
+        const custom = {};
+        document.querySelectorAll('#ci_custom [data-cic]').forEach(i => { if (i.value.trim()) custom[i.dataset.cic] = i.value.trim(); });
         const btn = document.getElementById('ci_save'); btn.disabled = true; btn.textContent = '…';
-        const res = await window.apiFetch('/admin/roster/mark', { method: 'POST', body: JSON.stringify({ member_id: memberId, attend: true, email, phone_number: phone }) });
+        const res = await window.apiFetch('/admin/roster/mark', { method: 'POST', body: JSON.stringify({ member_id: memberId, attend: true, email, phone_number: phone, custom }) });
         const data = await res.json();
         btn.disabled = false; btn.textContent = 'Check in';
         if (!res.ok) { msg.textContent = data.message || 'Failed.'; msg.className = 'text-sm mt-3 text-red-600'; return; }
@@ -426,9 +435,11 @@
         wrap.querySelector('.col-del').addEventListener('click', () => wrap.remove());
         return wrap;
     }
+    let formCfg = { phone_required: true, email_required: true, custom: [] };
     async function loadFormConfig() {
         const res = await window.apiFetch('/admin/form-config');
         const { data } = await res.json();
+        formCfg = data; // used by the Quick Check-In modal
         document.getElementById('fPhone').checked = !!data.phone_required;
         document.getElementById('fEmail').checked = !!data.email_required;
         const box = document.getElementById('customCols'); box.innerHTML = '';

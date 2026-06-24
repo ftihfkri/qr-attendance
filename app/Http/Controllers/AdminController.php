@@ -438,6 +438,7 @@ class AdminController extends Controller
             'name'         => ['nullable', 'string', 'max:150'],
             'email'        => ['nullable', 'email', 'max:150'],
             'phone_number' => ['nullable', 'string', 'max:50'],
+            'custom'       => ['array'],
         ]);
 
         $m = Meeting::current();
@@ -448,11 +449,24 @@ class AdminController extends Controller
             return response()->json(['status' => 'success', 'message' => 'Marked as not attended.']);
         }
 
-        // Manual check-in requires the member's email and phone number.
+        // Required fields follow the same "Check-in form fields" settings as the public form.
+        $cfg   = $m->formConfig();
         $email = trim((string) ($data['email'] ?? ''));
         $phone = trim((string) ($data['phone_number'] ?? ''));
-        if ($email === '' || $phone === '') {
-            return response()->json(['status' => 'error', 'message' => 'Email and phone number are required to check this member in.'], 422);
+        $missing = [];
+        if ($cfg['phone_required'] && $phone === '') $missing[] = 'phone number';
+        if ($cfg['email_required'] && $email === '') $missing[] = 'email';
+        if ($missing) {
+            return response()->json(['status' => 'error', 'message' => 'Please provide the ' . implode(' and ', $missing) . ' to check this member in.'], 422);
+        }
+
+        // Custom columns are collected if filled (not hard-required on the staff path).
+        $customData = [];
+        foreach ($cfg['custom'] as $f) {
+            $v = $request->input('custom.' . $f['key']);
+            if ($v !== null && trim((string) $v) !== '') {
+                $customData[$f['key']] = $v;
+            }
         }
 
         if (Attendance::where('meeting_id', $m->id)->where('koperasi_id', $memberId)->exists()) {
@@ -462,10 +476,10 @@ class AdminController extends Controller
         $membership = Membership::where('member_id', $memberId)->first();
         $name = $membership->name ?? ($data['name'] ?? $memberId);
 
-        DB::transaction(function () use ($m, $memberId, $name, $email, $phone) {
+        DB::transaction(function () use ($m, $memberId, $name, $email, $phone, $customData) {
             $shareholder = Shareholder::updateOrCreate(
                 ['koperasi_id' => $memberId],
-                ['name' => $name, 'phone_number' => $phone, 'email' => $email]
+                ['name' => $name, 'phone_number' => $phone, 'email' => $email ?: null]
             );
             Attendance::create([
                 'meeting_id'         => $m->id,
@@ -478,6 +492,7 @@ class AdminController extends Controller
                 'device_fingerprint' => 'manual:' . $memberId,
                 'status'             => 'present',
                 'method'             => 'manual',
+                'custom_data'        => $customData ?: null,
             ]);
         });
 
