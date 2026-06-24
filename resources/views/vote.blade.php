@@ -80,6 +80,7 @@
                 <h2 class="text-2xl sm:text-3xl font-bold">Live Results</h2>
                 <span class="text-sm text-emerald-200/70">Top <span id="dSeats">1</span> win</span>
             </div>
+            <div id="dTie" class="hidden mb-4 rounded-2xl px-4 py-3 bg-amber-400/15 border border-amber-300/50 text-amber-100 text-sm font-semibold">⚖ Tie for the last seat — needs a runoff or manual decision.</div>
             <div id="dBars" class="space-y-4"></div>
             <div id="dWinner" class="hidden mt-6"></div>
         </div>
@@ -125,19 +126,13 @@
                 <p id="status" class="text-center text-sm mt-3 min-h-5"></p>
             </div>
 
-            <!-- After voting: thank-you + live results on the voter's own phone -->
+            <!-- After voting: thank-you only (live results are on the projector, not polled by every phone) -->
             <div id="thanks" class="hidden">
-                <div class="text-center py-4">
+                <div class="text-center py-8">
                     <div class="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3 text-emerald-600 text-3xl kop-pop">✓</div>
                     <h2 class="text-lg font-semibold text-slate-900">Vote recorded</h2>
-                    <p class="text-slate-500 text-sm mt-1">Thank you for voting. Here are the live results:</p>
+                    <p class="text-slate-500 text-sm mt-1">Thank you for voting. Live results are shown on the main screen.</p>
                 </div>
-                <div class="flex items-center justify-between mb-2 mt-2">
-                    <span class="text-sm font-semibold text-slate-700">Live Results</span>
-                    <span id="vMeta" class="text-xs font-mono text-slate-400">0 votes</span>
-                </div>
-                <div id="vBars" class="space-y-2"></div>
-                <div id="vWinner" class="hidden mt-3 bg-emerald-50 border border-emerald-300 rounded-lg px-4 py-3 text-sm text-emerald-800"></div>
             </div>
         </div>
         <p class="text-center text-[11px] text-slate-400 mt-4">© KOP-SSB · Secure ballot — one vote per member</p>
@@ -306,6 +301,7 @@
         if (tally.voting_finished) winners = tally.candidates.filter(c => c.is_winner);
         else if (allIn) winners = tally.candidates.filter(c => c.votes > 0).slice(0, seats);
         renderWinners(winners, seats, tally.voting_finished);
+        document.getElementById('dTie').classList.toggle('hidden', !tally.tie_at_cutoff);
         if (tally.voting_finished && !confettiFired && winners.length) { confettiFired = true; fireConfetti(); }
     }
     poll(); setInterval(poll, 2000);
@@ -364,42 +360,6 @@
         return fp;
     }
 
-    // Live results shown to the voter after they vote.
-    const vPalette = [['#f59e0b','#d97706'],['#10b981','#0d9488'],['#0891b2','#0e7490'],['#65a30d','#4d7c0f'],['#16a34a','#15803d']];
-    async function voterResults() {
-        let res;
-        try { res = await fetch('/vote/' + TOKEN + '/results', { headers: { 'Accept': 'application/json' } }); }
-        catch (e) { return; }
-        if (!res.ok) return;
-        const { tally } = await res.json();
-        document.getElementById('vMeta').textContent = `${tally.total_votes} vote${tally.total_votes === 1 ? '' : 's'}`;
-        document.getElementById('vBars').innerHTML = tally.candidates.length
-            ? tally.candidates.map((c, i) => {
-                const g = vPalette[i % vPalette.length];
-                return `<div>
-                    <div class="flex justify-between text-sm mb-1">
-                        <span class="${c.is_winner ? 'font-bold text-emerald-700' : 'text-slate-700'}">${c.is_winner ? '🏆 ' : ''}${esc(c.name)}</span>
-                        <span class="font-mono text-slate-500">${c.votes} · ${c.percent}%</span>
-                    </div>
-                    <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:${c.percent}%;background:linear-gradient(90deg,${g[0]},${g[1]});transition:width .6s"></div></div>
-                </div>`;
-            }).join('')
-            : '<div class="text-sm text-slate-400 text-center py-3">No votes yet.</div>';
-        const w = document.getElementById('vWinner');
-        if (tally.voting_finished) {
-            const winners = tally.candidates.filter(c => c.is_winner).map(c => c.name);
-            w.classList.remove('hidden');
-            w.innerHTML = `🏆 <b>Winner${winners.length > 1 ? 's' : ''} (${winners.length} seat${tally.seats > 1 ? 's' : ''}):</b> ${winners.length ? winners.map(esc).join(', ') : 'No votes recorded.'}`;
-        } else {
-            w.classList.add('hidden');
-        }
-    }
-    let voterTimer = null;
-    function startVoterResults() {
-        voterResults();
-        if (!voterTimer) voterTimer = setInterval(voterResults, 2000);
-    }
-
     const btn = document.getElementById('voteBtn');
     if (btn) btn.addEventListener('click', async () => {
         const status = document.getElementById('status');
@@ -416,7 +376,6 @@
         if (res.ok) {
             document.getElementById('ballot').classList.add('hidden');
             document.getElementById('thanks').classList.remove('hidden');
-            startVoterResults();
         } else {
             status.textContent = data.message || 'Could not record your vote.'; status.className = 'text-center text-sm mt-3 text-red-600';
             btn.disabled = false;

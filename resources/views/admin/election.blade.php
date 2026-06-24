@@ -210,7 +210,8 @@
         if (tally.voting_finished) {
             const winners = tally.candidates.filter(c => c.is_winner).map(c => c.name);
             banner.classList.remove('hidden');
-            banner.innerHTML = `🏆 <b>Winners (${winners.length} seat${tally.seats > 1 ? 's' : ''}):</b> ${winners.length ? winners.map(esc).join(', ') : 'No votes recorded.'}`;
+            const tie = tally.tie_at_cutoff ? '<div class="mt-1 text-amber-700 font-semibold">⚖ Tie for the last seat — runoff or manual decision needed.</div>' : '';
+            banner.innerHTML = `🏆 <b>Winners (${winners.length} seat${tally.seats > 1 ? 's' : ''}):</b> ${winners.length ? winners.map(esc).join(', ') : 'No votes recorded.'}${tie}`;
         } else {
             banner.classList.add('hidden');
         }

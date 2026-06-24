@@ -158,15 +158,23 @@ class Meeting extends Model
           ->map(fn ($r) => $r + ['percent' => $total > 0 ? round($r['votes'] / $total * 100, 1) : 0.0]);
 
         $finished  = $this->votingFinished();
-        $winnerIds = $finished
-            ? $rows->where('votes', '>', 0)->take((int) $this->vote_seats)->pluck('candidate_id')->all()
-            : [];
+        $seats     = (int) $this->vote_seats;
+        $withVotes = $rows->where('votes', '>', 0)->values();
+        $winnerIds = $finished ? $withVotes->take($seats)->pluck('candidate_id')->all() : [];
+
+        // Tie at the seat cutoff: the last winning seat and the next candidate have
+        // the same vote count, so the final seat can't be decided automatically.
+        $tieAtCutoff = false;
+        if ($finished && $seats > 0 && $withVotes->count() > $seats) {
+            $tieAtCutoff = $withVotes[$seats - 1]['votes'] === $withVotes[$seats]['votes'];
+        }
 
         return [
             'total_votes'     => $total,
-            'seats'           => (int) $this->vote_seats,
+            'seats'           => $seats,
             'voting_active'   => $this->isVotingOpen(),
             'voting_finished' => $finished,
+            'tie_at_cutoff'   => $tieAtCutoff,
             'candidates'      => $rows->map(fn ($r) => $r + ['is_winner' => in_array($r['candidate_id'], $winnerIds)])->all(),
         ];
     }

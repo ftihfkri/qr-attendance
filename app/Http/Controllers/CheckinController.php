@@ -85,17 +85,14 @@ class CheckinController extends Controller
             return response()->json(['status' => 'error', 'message' => $meeting->closedReason()], 422);
         }
 
-        // 1. One submission per Koperasi ID for this session.
+        // 1. One submission per Koperasi ID for this session. (Several members may
+        //    share one device — common with elderly attendees — so we no longer
+        //    block by device; identity is the Nombor Ahli + roster name match.)
         if (Attendance::where('meeting_id', $meeting->id)->where('koperasi_id', $data['koperasi_id'])->exists()) {
             return response()->json(['status' => 'error', 'message' => 'This Koperasi ID has already submitted the form.'], 422);
         }
 
-        // 2. One submission per device for this session.
-        if (Attendance::where('meeting_id', $meeting->id)->where('device_fingerprint', $data['device_fingerprint'])->exists()) {
-            return response()->json(['status' => 'error', 'message' => 'This device has already been used to submit the form.'], 422);
-        }
-
-        // 3. Geofence against the venue the admin set (skipped if no venue set).
+        // 2. Geofence against the venue the admin set (skipped if no venue set).
         $distance = null;
         if ($meeting->venue_lat !== null && $meeting->venue_lng !== null) {
             if (!isset($data['location_lat']) || !isset($data['location_lng'])) {
@@ -110,33 +107,39 @@ class CheckinController extends Controller
             }
         }
 
-        $attendance = DB::transaction(function () use ($data, $meeting, $distance, $customData) {
-            $shareholder = Shareholder::updateOrCreate(
-                ['koperasi_id' => $data['koperasi_id']],
-                [
-                    'name'         => $data['name'],
-                    'phone_number' => $data['phone_number'] ?? '',
-                    'email'        => $data['email'] ?? null,
-                ]
-            );
+        try {
+            $attendance = DB::transaction(function () use ($data, $meeting, $distance, $customData) {
+                $shareholder = Shareholder::updateOrCreate(
+                    ['koperasi_id' => $data['koperasi_id']],
+                    [
+                        'name'         => $data['name'],
+                        'phone_number' => $data['phone_number'] ?? '',
+                        'email'        => $data['email'] ?? null,
+                    ]
+                );
 
-            return Attendance::create([
-                'meeting_id'          => $meeting->id,
-                'shareholder_id'      => $shareholder->id,
-                'koperasi_id'         => $data['koperasi_id'],
-                'name'                => $data['name'],
-                'phone_number'        => $data['phone_number'] ?? '',
-                'date'                => now()->format('Y-m-d'),
-                'time'                => now()->format('H:i:s'),
-                'location_lat'        => $data['location_lat'] ?? null,
-                'location_lng'        => $data['location_lng'] ?? null,
-                'device_fingerprint'  => $data['device_fingerprint'],
-                'status'              => 'present',
-                'distance_from_venue' => $distance,
-                'method'              => 'scanned',
-                'custom_data'         => $customData ?: null,
-            ]);
-        });
+                return Attendance::create([
+                    'meeting_id'          => $meeting->id,
+                    'shareholder_id'      => $shareholder->id,
+                    'koperasi_id'         => $data['koperasi_id'],
+                    'name'                => $data['name'],
+                    'phone_number'        => $data['phone_number'] ?? '',
+                    'date'                => now()->format('Y-m-d'),
+                    'time'                => now()->format('H:i:s'),
+                    'location_lat'        => $data['location_lat'] ?? null,
+                    'location_lng'        => $data['location_lng'] ?? null,
+                    'device_fingerprint'  => $data['device_fingerprint'],
+                    'status'              => 'present',
+                    'distance_from_venue' => $distance,
+                    'method'              => 'scanned',
+                    'custom_data'         => $customData ?: null,
+                ]);
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Lost the race against the unique (meeting_id, koperasi_id|device) keys
+            // — a near-simultaneous double-submit. Treat as already recorded, not a 500.
+            return response()->json(['status' => 'error', 'message' => 'This submission was already recorded.'], 422);
+        }
 
         return response()->json(['status' => 'success', 'message' => 'Attendance recorded. Thank you!', 'data' => $attendance]);
     }

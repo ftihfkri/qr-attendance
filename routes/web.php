@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect('/login'));
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1'); // 10/min (brute force)
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:40,1'); // 40/min — several staff/committee devices share one venue IP
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::get('/register', [AuthController::class, 'showRegister']);
