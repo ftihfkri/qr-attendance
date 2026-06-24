@@ -46,6 +46,30 @@
         @endunless
     </div>
 </div>
+
+@if ($open)
+<!-- Pre-permission priming popup (Malay): shown before the browser's native location prompt -->
+<div id="locModal" class="fixed inset-0 z-[90] hidden items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+        <div class="w-14 h-14 bg-brand-100 text-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900">Allow Location Access</h3>
+        <p class="text-xs text-slate-400 mb-3">Benarkan Akses Lokasi</p>
+        <p class="text-sm text-slate-600 leading-relaxed">
+            To confirm you're at the meeting venue, we need access to your device's location.
+            After you tap <b>“Allow Location”</b>, your browser will ask for permission — please choose <b>“Allow”</b>.
+        </p>
+        <p class="text-sm text-slate-500 leading-relaxed mt-2">
+            Untuk mengesahkan kehadiran anda di lokasi mesyuarat, kami memerlukan akses lokasi peranti anda.
+            Selepas menekan <b>“Allow Location”</b>, pelayar akan meminta kebenaran — sila pilih <b>“Allow”</b>.
+        </p>
+        <p class="text-xs text-slate-400 mt-3">Used only to verify attendance, not shared · Hanya untuk pengesahan kehadiran, tidak dikongsi.</p>
+        <button id="locAllowBtn" class="w-full mt-5 bg-brand-600 text-white py-2.5 rounded-lg hover:bg-brand-700 font-semibold shadow-sm transition">Allow Location · Benarkan</button>
+        <button id="locSkipBtn" class="w-full mt-2 text-slate-400 text-sm hover:text-slate-600 transition">Continue without location · Teruskan tanpa lokasi</button>
+    </div>
+</div>
+@endif
 @endsection
 
 @push('scripts')
@@ -111,15 +135,34 @@
         return fp;
     }
 
-    function getLocation() {
+    // Pre-permission priming: explain in Malay first, then trigger the native prompt.
+    let cachedLoc = null;
+    const locModal = document.getElementById('locModal');
+    function showLocModal() { if (locModal) { locModal.classList.remove('hidden'); locModal.classList.add('flex'); } }
+    function hideLocModal() { if (locModal) { locModal.classList.add('hidden'); locModal.classList.remove('flex'); } }
+
+    function requestLocation() {
         return new Promise((resolve) => {
             if (!navigator.geolocation) return resolve({ lat: null, lng: null });
             navigator.geolocation.getCurrentPosition(
-                p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+                p => { cachedLoc = { lat: p.coords.latitude, lng: p.coords.longitude }; resolve(cachedLoc); },
                 () => resolve({ lat: null, lng: null }),
                 { enableHighAccuracy: true, timeout: 10000 }
             );
         });
+    }
+
+    // The browser's permission prompt is only fired AFTER the user taps "Benarkan".
+    document.getElementById('locAllowBtn')?.addEventListener('click', async () => {
+        hideLocModal();
+        await requestLocation();
+    });
+    document.getElementById('locSkipBtn')?.addEventListener('click', hideLocModal);
+    showLocModal();
+
+    // Reuse the location captured by the popup; only ask again if we don't have it yet.
+    function getLocation() {
+        return cachedLoc ? Promise.resolve(cachedLoc) : requestLocation();
     }
 
     document.getElementById('form').addEventListener('submit', async (e) => {

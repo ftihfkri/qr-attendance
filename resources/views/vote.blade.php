@@ -39,9 +39,6 @@
             </div>
         </div>
         <div class="flex items-center gap-3 shrink-0">
-            <div id="dTimer" class="hidden items-center gap-2 px-4 py-2 rounded-full bg-black/25 border border-white/15 text-lg font-bold tabular-nums">
-                <span>⏳</span><span id="dTimerText">--:--</span>
-            </div>
             <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 text-sm font-semibold">
                 <span class="kop-live-dot w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span>
                 <span id="dStatusText">Loading…</span>
@@ -50,32 +47,37 @@
         </div>
     </div>
 
-    <!-- Body -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 items-start">
-        <!-- QR + totals -->
-        <div class="lg:col-span-1 space-y-4">
+    <!-- Body: 50% QR · 50% live results -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 items-start">
+        <!-- QR + timer + totals -->
+        <div class="space-y-5">
+            <!-- Big countdown timer, above the QR -->
+            <div id="dTimer" class="hidden items-center justify-center gap-4 bg-black/30 border border-white/15 rounded-3xl py-5 shadow-xl">
+                <span class="text-4xl sm:text-5xl">⏳</span>
+                <span id="dTimerText" class="text-5xl sm:text-7xl font-extrabold tabular-nums tracking-tight">--:--</span>
+            </div>
             <div class="bg-white text-slate-800 rounded-3xl p-6 shadow-2xl text-center kop-float">
-                <div class="text-lg font-bold mb-3 text-emerald-800">Scan to Vote</div>
+                <div class="text-xl font-bold mb-4 text-emerald-800">Scan to Vote</div>
                 <div id="qrcode" class="flex justify-center mb-3"></div>
                 <div class="text-[11px] text-slate-400 break-all">{{ $voteUrl }}</div>
-                <div class="mt-3 text-xs text-slate-500 leading-relaxed">Must be checked in · Candidates can’t vote · One vote each</div>
+                <div class="mt-3 text-sm text-slate-500 leading-relaxed">Must be checked in · Candidates can’t vote · One vote each</div>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-white/10 border border-white/15 rounded-2xl p-4 text-center">
-                    <div id="dTotal" class="text-3xl sm:text-4xl font-extrabold tabular-nums">0</div>
-                    <div class="text-[10px] uppercase tracking-widest text-emerald-200/70 mt-1">Votes Cast</div>
+                    <div id="dTotal" class="text-4xl sm:text-5xl font-extrabold tabular-nums">0</div>
+                    <div class="text-[11px] uppercase tracking-widest text-emerald-200/70 mt-1">Votes Cast</div>
                 </div>
                 <div class="bg-white/10 border border-white/15 rounded-2xl p-4 text-center">
-                    <div id="dElig" class="text-3xl sm:text-4xl font-extrabold tabular-nums">0</div>
-                    <div class="text-[10px] uppercase tracking-widest text-emerald-200/70 mt-1">Eligible</div>
+                    <div id="dElig" class="text-4xl sm:text-5xl font-extrabold tabular-nums">0</div>
+                    <div class="text-[11px] uppercase tracking-widest text-emerald-200/70 mt-1">Eligible</div>
                 </div>
             </div>
         </div>
 
-        <!-- Results -->
-        <div class="lg:col-span-2">
+        <!-- Live results -->
+        <div>
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl sm:text-2xl font-bold">Live Results</h2>
+                <h2 class="text-2xl sm:text-3xl font-bold">Live Results</h2>
                 <span class="text-sm text-emerald-200/70">Top <span id="dSeats">1</span> win</span>
             </div>
             <div id="dBars" class="space-y-4"></div>
@@ -225,6 +227,52 @@
             <div class="grid gap-4" style="grid-template-columns:repeat(${Math.min(winners.length, 4)},minmax(0,1fr))">${cards}</div>`;
     }
 
+    // Results bars are built once and then UPDATED IN PLACE every poll (widths,
+    // counts, ranking) — so they animate smoothly instead of flickering/rebuilding.
+    let barEls = {}, builtKey = '';
+    function renderBars(cands) {
+        const box = document.getElementById('dBars');
+        if (!cands.length) { box.innerHTML = '<div class="text-center text-emerald-200/60 py-10 text-lg">Waiting for the first vote…</div>'; builtKey = ''; barEls = {}; return; }
+        const key = cands.map(c => c.candidate_id).slice().sort((a, b) => a - b).join(',');
+        if (key !== builtKey) {
+            box.innerHTML = cands.map(c => `
+                <div id="bar-${c.candidate_id}" class="kop-row bg-white/[0.07] rounded-2xl p-4 border border-white/10">
+                    <div class="flex items-center justify-between mb-2 gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="b-rank text-2xl shrink-0 w-9 text-center"></span>
+                            <span class="text-xl sm:text-2xl font-bold truncate">${esc(c.name)}</span>
+                            <span class="b-crown text-2xl hidden">👑</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="b-vt text-2xl sm:text-3xl font-extrabold tabular-nums">0</span>
+                            <span class="b-pct text-emerald-200/70 text-base sm:text-lg ml-1">0%</span>
+                        </div>
+                    </div>
+                    <div class="h-5 rounded-full bg-white/10 overflow-hidden">
+                        <div class="b-fill kop-bar-fill h-full rounded-full" style="width:0%"></div>
+                    </div>
+                </div>`).join('');
+            barEls = {};
+            cands.forEach(c => {
+                const row = document.getElementById('bar-' + c.candidate_id);
+                barEls[c.candidate_id] = { row, rank: row.querySelector('.b-rank'), crown: row.querySelector('.b-crown'), vt: row.querySelector('.b-vt'), pct: row.querySelector('.b-pct'), fill: row.querySelector('.b-fill') };
+            });
+            builtKey = key;
+        }
+        cands.forEach((c, i) => {
+            const el = barEls[c.candidate_id]; if (!el) return;
+            const g = c.is_winner ? greens[0] : greens[(i + 1) % greens.length];
+            el.rank.textContent = i < 3 ? medals[i] : (i + 1);
+            el.vt.textContent = c.votes;
+            el.pct.textContent = c.percent + '%';
+            el.fill.style.width = c.percent + '%';
+            el.fill.style.background = `linear-gradient(90deg,${g[0]},${g[1]})`;
+            el.crown.classList.toggle('hidden', !c.is_winner);
+            el.row.classList.toggle('kop-leader', (i === 0 && c.votes > 0) || c.is_winner);
+            box.appendChild(el.row); // keep DOM order matching the ranking
+        });
+    }
+
     async function poll() {
         let res;
         try { res = await fetch('/vote/' + TOKEN + '/results', { headers: { 'Accept': 'application/json' } }); }
@@ -242,29 +290,7 @@
         document.getElementById('dTimer').classList.toggle('hidden', !showTimer);
         document.getElementById('dTimer').classList.toggle('flex', showTimer);
 
-        document.getElementById('dBars').innerHTML = tally.candidates.length
-            ? tally.candidates.map((c, i) => {
-                const g = c.is_winner ? greens[0] : greens[(i + 1) % greens.length];
-                const rank = i < 3 ? medals[i] : (i + 1);
-                const lead = (i === 0 && c.votes > 0) || c.is_winner;
-                return `<div class="kop-row ${lead ? 'kop-leader' : ''} bg-white/[0.07] rounded-2xl p-4 border border-white/10" style="animation-delay:${i * 60}ms">
-                    <div class="flex items-center justify-between mb-2 gap-3">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <span class="text-2xl shrink-0 w-9 text-center">${rank}</span>
-                            <span class="text-xl sm:text-2xl font-bold truncate">${esc(c.name)}</span>
-                            ${c.is_winner ? '<span class="text-2xl">👑</span>' : ''}
-                        </div>
-                        <div class="text-right shrink-0">
-                            <span class="text-2xl sm:text-3xl font-extrabold tabular-nums">${c.votes}</span>
-                            <span class="text-emerald-200/70 text-base sm:text-lg ml-1">${c.percent}%</span>
-                        </div>
-                    </div>
-                    <div class="h-5 rounded-full bg-white/10 overflow-hidden">
-                        <div class="kop-bar-fill h-full rounded-full" style="width:${c.percent}%;background:linear-gradient(90deg,${g[0]},${g[1]})"></div>
-                    </div>
-                </div>`;
-            }).join('')
-            : '<div class="text-center text-emerald-200/60 py-10 text-lg">Waiting for the first vote…</div>';
+        renderBars(tally.candidates);
 
         // Winner reveal: when finished, or when every eligible member has voted.
         const seats = tally.seats;

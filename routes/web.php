@@ -20,14 +20,14 @@ Route::post('/register', [AuthController::class, 'register'])->middleware('throt
 
 // Public check-in (the QR points here)
 Route::get('/checkin', [CheckinController::class, 'show']);
-Route::get('/checkin/members', [CheckinController::class, 'searchMembers'])->middleware('throttle:60,1'); // roster autocomplete
-Route::post('/checkin', [CheckinController::class, 'store'])->middleware('throttle:30,1'); // cap spam/enumeration
+Route::get('/checkin/members', [CheckinController::class, 'searchMembers'])->middleware('throttle:600,1'); // autocomplete — 500+ members share one venue IP
+Route::post('/checkin', [CheckinController::class, 'store'])->middleware('throttle:300,1'); // arrival rush from one venue IP (abuse blocked by roster match + unique keys)
 
 // Public board-election ballot (members scan the QR to vote)
 Route::get('/vote/{token}', [VotingController::class, 'show']);
-Route::get('/vote/{token}/voters', [VotingController::class, 'voterSearch'])->middleware('throttle:60,1'); // name autocomplete
-Route::get('/vote/{token}/results', [VotingController::class, 'results'])->middleware('throttle:120,1');
-Route::post('/vote/{token}', [VotingController::class, 'vote'])->middleware('throttle:30,1');
+Route::get('/vote/{token}/voters', [VotingController::class, 'voterSearch'])->middleware('throttle:240,1'); // name autocomplete (shared venue IP)
+Route::get('/vote/{token}/results', [VotingController::class, 'results'])->middleware('throttle:1200,1'); // polled every 2s by many devices on one IP
+Route::post('/vote/{token}', [VotingController::class, 'vote'])->middleware('throttle:240,1'); // a room voting from one IP
 
 // ---- Authenticated (admin + staff share the same interface) ----
 Route::middleware('auth')->group(function () {

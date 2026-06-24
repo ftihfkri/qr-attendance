@@ -67,6 +67,7 @@
             <h2 class="text-lg font-semibold mb-4">Scan to check in</h2>
             <div id="qrcode" class="flex justify-center mb-3"></div>
             <p class="text-xs text-gray-500 break-all" id="checkinUrl"></p>
+            <button id="printQrBtn" class="mt-4 inline-flex items-center gap-1.5 bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 text-sm">🖨 Print QR</button>
         </div>
 
         <!-- List -->
@@ -140,6 +141,26 @@
         </div>
     </div>
 </div>
+
+<!-- Print-only layout: just the logo + QR + caption (clean printout, no dashboard chrome) -->
+<div id="printArea" class="hidden">
+    <img src="{{ asset('images/kop-ssb-logo.png') }}" alt="KOP-SSB" style="height:90px;width:auto;margin:0 auto 16px;">
+    <div style="font-size:24px;font-weight:800;color:#111;">Scan to Check In</div>
+    <div style="font-size:14px;color:#555;margin-top:4px;">Koperasi Kakitangan Sabah Softwoods Berhad</div>
+    <div id="printQrcode" style="display:flex;justify-content:center;margin:28px 0;"></div>
+    <div id="printUrl" style="font-size:13px;color:#777;"></div>
+</div>
+<style>
+    @media print {
+        body * { visibility: hidden; }
+        #printArea, #printArea * { visibility: visible; }
+        #printArea {
+            display: block !important;
+            position: absolute; top: 0; left: 0; right: 0;
+            text-align: center; padding-top: 48px;
+        }
+    }
+</style>
 @endsection
 
 @push('scripts')
@@ -149,6 +170,11 @@
     const checkinUrl = window.location.origin + '/checkin';
     document.getElementById('checkinUrl').textContent = checkinUrl;
     new QRCode(document.getElementById('qrcode'), { text: checkinUrl, width: 240, height: 240 });
+
+    // Larger QR for the print-only layout + print button.
+    new QRCode(document.getElementById('printQrcode'), { text: checkinUrl, width: 360, height: 360 });
+    document.getElementById('printUrl').textContent = checkinUrl;
+    document.getElementById('printQrBtn').addEventListener('click', () => window.print());
 
     function setVenueStatus(d) {
         const el = document.getElementById('venueStatus');
