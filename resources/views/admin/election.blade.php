@@ -69,7 +69,8 @@
                 </div>
                 <div id="resultBars" class="space-y-3"></div>
                 <div id="winnerBanner" class="hidden mt-4 bg-green-50 border border-green-300 rounded-lg px-4 py-3 text-sm text-green-800"></div>
-                <div class="mt-4 pt-3 border-t text-right">
+                <div class="mt-4 pt-3 border-t flex flex-wrap items-center justify-between gap-2">
+                    <button id="restartBtn" class="bg-amber-100 text-amber-800 text-xs px-3 py-1.5 rounded hover:bg-amber-200 font-medium">♻ Restart voting (clear votes, keep QR)</button>
                     <button id="clearBtn" class="text-red-500 text-xs hover:underline">Clear election (start fresh)</button>
                 </div>
             </div>
@@ -219,6 +220,16 @@
             banner.classList.add('hidden');
         }
     }
+
+    // ---- Restart voting: clear votes only, keep the same QR + candidates ----
+    document.getElementById('restartBtn').addEventListener('click', async () => {
+        if (!confirm('Restart voting? This clears ALL current votes so everyone can vote again — but keeps the candidates and the SAME QR code. Use this if voting was started by mistake.')) return;
+        const res = await window.apiFetch('/admin/election/reset-votes', { method: 'POST' });
+        const data = await res.json();
+        const msg = document.getElementById('voteMsg');
+        msg.textContent = data.message || ''; msg.className = 'text-sm mt-2 ' + (res.ok ? 'text-green-600' : 'text-red-600');
+        await loadResults();
+    });
 
     // ---- Clear election (start fresh) — like the attendance Clear list ----
     document.getElementById('clearBtn').addEventListener('click', async () => {

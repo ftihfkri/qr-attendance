@@ -59,6 +59,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/election/candidates', [ElectionController::class, 'addCandidate']);
     Route::delete('/admin/election/candidates/{id}', [ElectionController::class, 'removeCandidate']);
     Route::post('/admin/election/voting', [ElectionController::class, 'setVoting']);
+    Route::post('/admin/election/reset-votes', [ElectionController::class, 'resetVotes']);
     Route::post('/admin/election/clear', [ElectionController::class, 'clear']);
 
     // ---- Admin role only: user management ----

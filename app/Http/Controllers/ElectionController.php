@@ -162,8 +162,32 @@ class ElectionController extends Controller
         ]);
     }
 
+    // Restart voting: clear all votes (everyone can vote again) but KEEP the
+    // candidates and the same vote_token, so the QR members already scanned stays
+    // valid. Used to recover from a mistaken start / wrong setup mid-session.
+    public function resetVotes()
+    {
+        $m = Meeting::current();
+        $votes = Vote::where('meeting_id', $m->id)->count();
+        Vote::where('meeting_id', $m->id)->delete();
+
+        if (!$m->vote_token) {
+            $m->vote_token = Meeting::generateVoteToken();
+        }
+        $m->voting_open    = true;
+        $m->vote_starts_at = now();
+        $m->vote_ends_at   = null; // fresh window; set a new timer via Save if needed
+        $m->save();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => "Cleared {$votes} vote(s). Voting restarted — the same QR still works, and members who already voted can vote again.",
+            'meeting' => $this->meetingJson($m->fresh()),
+        ]);
+    }
+
     // Clear the whole election (start fresh) — like the attendance "Clear list".
-    // Removes all votes + candidates and resets the voting window.
+    // Removes all votes + candidates and resets the voting window (new QR next time).
     public function clear()
     {
         $m = Meeting::current();

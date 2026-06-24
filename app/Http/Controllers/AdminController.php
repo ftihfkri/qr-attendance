@@ -203,7 +203,19 @@ class AdminController extends Controller
     public function clear()
     {
         $m = Meeting::current();
+
+        // Shareholders who were checked in — we'll wipe the contact details they
+        // filled in, but keep their name + Nombor Ahli (the uploaded roster stays).
+        $shIds = Attendance::where('meeting_id', $m->id)->pluck('shareholder_id')->filter()->unique();
+
         $count = Attendance::where('meeting_id', $m->id)->delete();
+
+        // Clear only the captured phone/email so no stale (e.g. dummy/test) contact
+        // prefills next time. Raw query-builder update avoids touching timestamps.
+        if ($shIds->isNotEmpty()) {
+            DB::table('shareholders')->whereIn('id', $shIds->all())->update(['phone_number' => '', 'email' => null]);
+        }
+
         return response()->json(['status' => 'success', 'deleted' => $count]);
     }
 
