@@ -304,7 +304,11 @@
     document.getElementById('clearBtn').addEventListener('click', async () => {
         if (!confirm('Clear the entire list?')) return;
         await window.apiFetch('/admin/clear', { method: 'POST' });
-        loadList();
+        // Refresh BOTH the submitted list and the roster — the roster holds the
+        // email/phone the Quick Check-In modal prefills, so it must reload too or
+        // it keeps showing the old (e.g. dummy) contact details.
+        await loadList();
+        await loadRoster();
     });
 
     // ---- Quick Check-In: roster members who haven't submitted yet ----
