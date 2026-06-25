@@ -33,7 +33,7 @@
                 <h2 class="text-lg font-semibold mb-3">2 · Voting Window</h2>
                 <div class="grid grid-cols-2 gap-3 items-end mb-4">
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Seats (top-N win)</label>
+                        <label class="block text-xs text-gray-600 mb-1">Seats — top-N win &amp; each voter picks N</label>
                         <input id="seats" type="number" min="1" value="1" class="w-full p-2 border border-gray-300 rounded">
                     </div>
                     <div>
@@ -83,7 +83,7 @@
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js"></script>
 <script>
     const palette = ['#4f46e5','#16a34a','#0ea5e9','#d97706','#db2777','#7c3aed','#0d9488','#dc2626'];
-    let meeting = {}, qr = null, lastToken = null;
+    let meeting = {}, qr = null, lastToken = null, seatsDirty = false;
     function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
     // ---- Candidate pool search ----
@@ -131,6 +131,7 @@
         msg.textContent = data.message || ''; msg.className = 'text-sm mt-2 ' + (res.ok ? 'text-green-600' : 'text-red-600');
         if (res.ok && data.meeting) {
             meeting = data.meeting;
+            seatsDirty = false; // saved — let the poll sync the box again
             if (action === 'open' && meeting.vote_token) {
                 window.open(window.location.origin + '/vote/' + meeting.vote_token + '?display=1', '_blank');
             }
@@ -140,6 +141,15 @@
     document.getElementById('openBtn').addEventListener('click', () => setVoting('open'));
     document.getElementById('closeBtn').addEventListener('click', () => setVoting('close'));
     document.getElementById('saveBtn').addEventListener('click', () => setVoting('update'));
+
+    // Keep the seats box from being reset by the 2s poll: mark it dirty while editing,
+    // and persist the value as soon as the user leaves the field so it sticks.
+    const seatsInput = document.getElementById('seats');
+    seatsInput.addEventListener('input', () => { seatsDirty = true; });
+    seatsInput.addEventListener('change', () => {
+        if ((parseInt(seatsInput.value) || 0) < 1) seatsInput.value = 1;
+        setVoting('update');
+    });
 
     // ---- Render QR ----
     function renderQR(token) {
@@ -183,7 +193,7 @@
         document.getElementById('closeBtn').classList.toggle('hidden', !m.voting_active);
         document.getElementById('liveLink').classList.toggle('hidden', !m.vote_token);
         document.getElementById('stationLink').classList.toggle('hidden', !m.vote_token);
-        if (document.activeElement?.id !== 'seats') document.getElementById('seats').value = m.vote_seats || 1;
+        if (!seatsDirty && document.activeElement?.id !== 'seats') document.getElementById('seats').value = m.vote_seats || 1;
         document.getElementById('autoClose').textContent =
             (m.vote_ends_at && m.voting_active) ? 'Auto-closes at ' + m.vote_ends_at.replace('T', ' ') : '';
 
@@ -238,7 +248,7 @@
         const data = await res.json();
         const msg = document.getElementById('voteMsg');
         msg.textContent = data.message || ''; msg.className = 'text-sm mt-2 ' + (res.ok ? 'text-green-600' : 'text-red-600');
-        if (res.ok) { document.getElementById('duration').value = ''; document.getElementById('seats').value = 1; }
+        if (res.ok) { document.getElementById('duration').value = ''; document.getElementById('seats').value = 1; seatsDirty = false; }
         await loadResults(); await loadPool();
     });
 

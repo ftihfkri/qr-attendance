@@ -149,13 +149,17 @@ class Meeting extends Model
             ->pluck('c', 'candidate_id');
         $total = (int) $counts->sum();
 
+        // Each voter casts N rows (N = vote_seats), so "ballots" (distinct voters) is
+        // the people-count; percentages are read as "% of voters who picked them".
+        $voters = (int) $this->votes()->distinct('voter_koperasi_id')->count('voter_koperasi_id');
+
         $rows = $candidates->map(fn ($c) => [
             'candidate_id' => $c->id,
             'koperasi_id'  => $c->koperasi_id,
             'name'         => $c->name,
             'votes'        => (int) ($counts[$c->id] ?? 0),
         ])->sortByDesc('votes')->values()
-          ->map(fn ($r) => $r + ['percent' => $total > 0 ? round($r['votes'] / $total * 100, 1) : 0.0]);
+          ->map(fn ($r) => $r + ['percent' => $voters > 0 ? round($r['votes'] / $voters * 100, 1) : 0.0]);
 
         $finished  = $this->votingFinished();
         $seats     = (int) $this->vote_seats;
@@ -171,6 +175,7 @@ class Meeting extends Model
 
         return [
             'total_votes'     => $total,
+            'voters'          => $voters,
             'seats'           => $seats,
             'voting_active'   => $this->isVotingOpen(),
             'voting_finished' => $finished,

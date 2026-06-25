@@ -67,7 +67,8 @@ class VotingController extends Controller
 
         $data = $request->validate([
             'koperasi_id'        => ['required', 'string', 'max:100'],
-            'candidate_id'       => ['required', 'integer'],
+            'candidate_ids'      => ['required', 'array'],
+            'candidate_ids.*'    => ['integer'],
             'device_fingerprint' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -78,25 +79,44 @@ class VotingController extends Controller
             return response()->json(['status' => 'error', 'reason' => $status, 'message' => $msg], 422);
         }
 
-        $candidate = Candidate::where('meeting_id', $meeting->id)->where('id', $data['candidate_id'])->first();
-        if (!$candidate) {
-            return response()->json(['status' => 'error', 'message' => 'Invalid candidate.'], 422);
+        // The voter must pick EXACTLY N (= vote_seats) distinct candidates — no more, no less.
+        $seats = max(1, (int) $meeting->vote_seats);
+        $candidateIds = array_values(array_unique(array_map('intval', $data['candidate_ids'])));
+        if (count($candidateIds) !== $seats) {
+            return response()->json([
+                'status'  => 'error',
+                'reason'  => 'wrong_count',
+                'message' => "Please choose exactly {$seats} candidate" . ($seats > 1 ? 's' : '') . '.',
+            ], 422);
+        }
+
+        // Every chosen id must be a real candidate in this meeting.
+        $validIds = Candidate::where('meeting_id', $meeting->id)
+            ->whereIn('id', $candidateIds)->pluck('id')->all();
+        if (count($validIds) !== count($candidateIds)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid candidate selection.'], 422);
         }
 
         $voterName = Attendance::where('meeting_id', $meeting->id)
             ->where('koperasi_id', $koperasiId)->value('name');
 
+        $now = now();
+        $rows = array_map(fn ($cid) => [
+            'meeting_id'         => $meeting->id,
+            'candidate_id'       => $cid,
+            'voter_koperasi_id'  => $koperasiId,
+            'voter_name'         => $voterName,
+            'device_fingerprint' => $data['device_fingerprint'] ?? null,
+            'ip_address'         => $request->ip(),
+            'created_at'         => $now,
+            'updated_at'         => $now,
+        ], $candidateIds);
+
         try {
-            Vote::create([
-                'meeting_id'         => $meeting->id,
-                'candidate_id'       => $candidate->id,
-                'voter_koperasi_id'  => $koperasiId,
-                'voter_name'         => $voterName,
-                'device_fingerprint' => $data['device_fingerprint'] ?? null,
-                'ip_address'         => $request->ip(),
-            ]);
+            // All N rows in one insert — the unique(meeting, voter, candidate) key makes
+            // a second submission by the same voter fail atomically (no partial ballot).
+            Vote::insert($rows);
         } catch (\Illuminate\Database\QueryException $e) {
-            // Race against the unique(meeting_id, voter_koperasi_id) constraint.
             return response()->json(['status' => 'error', 'reason' => 'already_voted', 'message' => 'This Nombor Ahli has already voted.'], 422);
         }
 

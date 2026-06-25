@@ -25,6 +25,7 @@
 @section('content')
 @php($voteUrl = url('/vote/' . $token))
 @php($logo = asset('images/kop-ssb-logo.png'))
+@php($seats = max(1, (int) $meeting->vote_seats))
 
 @if ($display)
 {{-- ════════════ Projector / big-screen display ════════════ --}}
@@ -61,7 +62,7 @@
                 <div class="text-xl font-bold mb-4 text-emerald-800">Scan to Vote</div>
                 <div id="qrcode" class="flex justify-center mb-3"></div>
                 <div class="text-[11px] text-slate-400 break-all">{{ $voteUrl }}</div>
-                <div class="mt-3 text-sm text-slate-500 leading-relaxed">Must be checked in · Candidates can’t vote · One vote each</div>
+                <div class="mt-3 text-sm text-slate-500 leading-relaxed">Must be checked in · Candidates can’t vote · {{ $seats > 1 ? 'Pick ' . $seats . ' each' : 'One vote each' }}</div>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-white/10 border border-white/15 rounded-2xl p-4 text-center">
@@ -105,7 +106,7 @@
                 <img src="{{ $logo }}" alt="KOP-SSB" class="h-16 w-auto mx-auto mb-3">
                 <div class="text-[10px] uppercase tracking-[0.18em] text-emerald-700/70 mb-1">Koperasi Kakitangan Sabah Softwoods Berhad</div>
                 <h1 class="text-2xl font-bold tracking-tight text-slate-900">Board Election</h1>
-                <p class="text-slate-500 text-sm mt-1">Find your name, then choose one candidate.</p>
+                <p class="text-slate-500 text-sm mt-1">Find your name, then choose {{ $seats > 1 ? 'exactly ' . $seats . ' candidates' : 'one candidate' }}.</p>
             </div>
 
             <div id="ballot">
@@ -119,14 +120,21 @@
                     <input id="koperasi_id" autocomplete="off" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 outline-none transition" placeholder="Auto-fills when you pick your name">
                 </div>
 
-                <p class="text-sm font-medium text-slate-700 mb-2">Candidates</p>
+                <div class="flex items-baseline justify-between mb-2">
+                    <p class="text-sm font-medium text-slate-700">Candidates</p>
+                    @if (!$candidates->isEmpty())
+                    <span class="text-xs font-medium {{ $seats > 1 ? 'text-emerald-700' : 'text-slate-400' }}">
+                        @if ($seats > 1) Choose exactly {{ $seats }} — <span id="pickCount">0</span>/{{ $seats }} selected @else Choose one @endif
+                    </span>
+                    @endif
+                </div>
                 @if ($candidates->isEmpty())
                     <p class="text-sm text-slate-400 mb-4">No candidates have been nominated yet.</p>
                 @else
-                <div class="space-y-2 mb-5">
+                <div id="candidateList" class="space-y-2 mb-5">
                     @foreach ($candidates as $c)
                     <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-emerald-50 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 transition">
-                        <input type="radio" name="candidate" value="{{ $c['candidate_id'] }}" class="accent-emerald-600 w-4 h-4">
+                        <input type="checkbox" name="candidate" value="{{ $c['candidate_id'] }}" class="candidate-pick accent-emerald-600 w-4 h-4 rounded">
                         <span class="text-slate-800 font-medium">{{ $c['name'] }}</span>
                     </label>
                     @endforeach
@@ -339,7 +347,8 @@
 
         // Winner reveal: when finished, or when every eligible member has voted.
         const seats = tally.seats;
-        const allIn = eligible_voters > 0 && tally.total_votes >= eligible_voters;
+        // Each voter casts N rows, so compare PEOPLE (distinct voters) to eligible.
+        const allIn = eligible_voters > 0 && (tally.voters ?? tally.total_votes) >= eligible_voters;
         let winners = [];
         if (tally.voting_finished) winners = tally.candidates.filter(c => c.is_winner);
         else if (allIn) winners = tally.candidates.filter(c => c.votes > 0).slice(0, seats);
@@ -366,6 +375,31 @@
     poll(); setInterval(poll, 2000);
 @else
     // ---- Voter ballot ----
+    const SEATS = @json($seats);
+
+    // Enforce "exactly N" candidate picks: keep a live count, block selecting more
+    // than N (un-checked boxes disable once the limit is hit), and update the counter.
+    const pickCountEl = document.getElementById('pickCount');
+    function selectedPicks() { return Array.from(document.querySelectorAll('.candidate-pick:checked')); }
+    function refreshPicks() {
+        const picks = selectedPicks();
+        if (pickCountEl) pickCountEl.textContent = picks.length;
+        if (SEATS > 1) {
+            const atLimit = picks.length >= SEATS;
+            document.querySelectorAll('.candidate-pick').forEach(cb => {
+                cb.disabled = atLimit && !cb.checked;
+                cb.closest('label')?.classList.toggle('opacity-50', cb.disabled);
+            });
+        } else {
+            // Single-seat: behave like a radio — checking one un-checks the rest.
+            const last = picks[picks.length - 1];
+            if (picks.length > 1 && last) {
+                document.querySelectorAll('.candidate-pick').forEach(cb => { if (cb !== last) cb.checked = false; });
+            }
+        }
+    }
+    document.querySelectorAll('.candidate-pick').forEach(cb => cb.addEventListener('change', refreshPicks));
+
     // Name autocomplete over this meeting's checked-in attendees (fills Nombor Ahli).
     const nameInput = document.getElementById('name');
     const koperasiInput = document.getElementById('koperasi_id');
@@ -424,8 +458,8 @@
         document.getElementById('name').value = '';
         document.getElementById('koperasi_id').value = '';
         document.querySelectorAll('[data-custom]').forEach(i => i.value = '');
-        const picked = document.querySelector('input[name="candidate"]:checked');
-        if (picked) picked.checked = false;
+        document.querySelectorAll('.candidate-pick').forEach(cb => { cb.checked = false; cb.disabled = false; cb.closest('label')?.classList.remove('opacity-50'); });
+        refreshPicks();
         const s = document.getElementById('status'); if (s) s.textContent = '';
         const b = document.getElementById('voteBtn'); if (b) b.disabled = false;
         document.getElementById('thanks').classList.add('hidden');
@@ -437,13 +471,16 @@
     if (btn) btn.addEventListener('click', async () => {
         const status = document.getElementById('status');
         const koperasi_id = document.getElementById('koperasi_id').value.trim();
-        const picked = document.querySelector('input[name="candidate"]:checked');
+        const picks = selectedPicks().map(cb => parseInt(cb.value));
         if (!koperasi_id) { status.textContent = 'Please enter your Nombor Ahli.'; status.className = 'text-center text-sm mt-3 text-red-600'; return; }
-        if (!picked) { status.textContent = 'Please choose a candidate.'; status.className = 'text-center text-sm mt-3 text-red-600'; return; }
+        if (picks.length !== SEATS) {
+            status.textContent = SEATS > 1 ? `Please choose exactly ${SEATS} candidates (${picks.length} selected).` : 'Please choose a candidate.';
+            status.className = 'text-center text-sm mt-3 text-red-600'; return;
+        }
         btn.disabled = true; status.textContent = 'Submitting…'; status.className = 'text-center text-sm mt-3 text-slate-500';
         const res = await window.apiFetch('/vote/' + TOKEN, {
             method: 'POST',
-            body: JSON.stringify({ koperasi_id, candidate_id: parseInt(picked.value), device_fingerprint: deviceFingerprint() }),
+            body: JSON.stringify({ koperasi_id, candidate_ids: picks, device_fingerprint: deviceFingerprint() }),
         });
         const data = await res.json();
         if (res.ok) {
