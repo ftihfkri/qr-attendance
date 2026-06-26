@@ -367,6 +367,72 @@ class AdminController extends Controller
         return response()->json(['status' => 'success', 'data' => compact('added', 'skipped', 'errors')]);
     }
 
+    // The whole roster for the manage-roster table (optionally filtered).
+    public function membershipsList(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        $rows = Membership::when($q !== '', fn ($query) => $query->where(function ($sq) use ($q) {
+                $sq->where('name', 'like', "%{$q}%")->orWhere('member_id', 'like', "%{$q}%");
+            }))
+            ->orderBy('name')
+            ->get(['id', 'name', 'member_id']);
+
+        return response()->json(['status' => 'success', 'data' => $rows]);
+    }
+
+    // Add one member to the roster (for the odd person missing from the file).
+    public function addMembership(Request $request)
+    {
+        $data = $request->validate([
+            'name'      => ['required', 'string', 'max:150'],
+            'member_id' => ['required', 'string', 'max:100'],
+        ]);
+
+        $memberId = trim($data['member_id']);
+        if (Membership::where('member_id', $memberId)->exists()) {
+            return response()->json(['status' => 'error', 'message' => 'That membership ID is already in the roster.'], 422);
+        }
+
+        Membership::create(['name' => trim($data['name']), 'member_id' => $memberId]);
+
+        return response()->json(['status' => 'success', 'message' => 'Member added.']);
+    }
+
+    // Correct a roster entry's name and/or ID.
+    public function updateMembership(Request $request, $id)
+    {
+        $data = $request->validate([
+            'name'      => ['required', 'string', 'max:150'],
+            'member_id' => ['required', 'string', 'max:100'],
+        ]);
+
+        $member = Membership::find($id);
+        if (!$member) {
+            return response()->json(['status' => 'error', 'message' => 'Member not found.'], 404);
+        }
+
+        $memberId = trim($data['member_id']);
+        $clash = Membership::where('member_id', $memberId)->where('id', '!=', $member->id)->exists();
+        if ($clash) {
+            return response()->json(['status' => 'error', 'message' => 'Another member already uses that ID.'], 422);
+        }
+
+        $member->update(['name' => trim($data['name']), 'member_id' => $memberId]);
+
+        return response()->json(['status' => 'success', 'message' => 'Member updated.']);
+    }
+
+    // Remove a member from the roster (does not touch any existing check-in).
+    public function deleteMembership($id)
+    {
+        $member = Membership::find($id);
+        if (!$member) {
+            return response()->json(['status' => 'error', 'message' => 'Member not found.'], 404);
+        }
+        $member->delete();
+        return response()->json(['status' => 'success', 'message' => 'Member removed.']);
+    }
+
     // Delete a single submission (human error). Removes the check-in record;
     // the shareholder/roster entry is kept.
     public function deleteAttendance($id)

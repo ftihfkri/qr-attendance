@@ -49,6 +49,10 @@ Route::middleware('auth')->group(function () {
     // Membership roster + attendance status
     Route::get('/admin/upload', [AdminController::class, 'uploadPage']);
     Route::post('/admin/memberships/upload', [AdminController::class, 'membershipUpload']);
+    Route::get('/admin/memberships', [AdminController::class, 'membershipsList']);
+    Route::post('/admin/memberships', [AdminController::class, 'addMembership']);
+    Route::post('/admin/memberships/{id}', [AdminController::class, 'updateMembership'])->whereNumber('id');
+    Route::delete('/admin/memberships/{id}', [AdminController::class, 'deleteMembership'])->whereNumber('id');
     Route::get('/admin/roster', [AdminController::class, 'roster']);
     Route::post('/admin/roster/mark', [AdminController::class, 'markAttendance']);
 
