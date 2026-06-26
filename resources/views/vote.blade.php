@@ -165,7 +165,7 @@
 
 @push('scripts')
 @if ($display)
-<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js"></script>
+<script src="{{ asset('js/qrcode.min.js') }}"></script>
 @endif
 <script>
     const TOKEN = @json($token);

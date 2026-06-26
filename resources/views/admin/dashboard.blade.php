@@ -187,7 +187,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js"></script>
+<script src="{{ asset('js/qrcode.min.js') }}"></script>
 <script>
     // QR of the public check-in URL (client-side render; works on any domain)
     const checkinUrl = window.location.origin + '/checkin';

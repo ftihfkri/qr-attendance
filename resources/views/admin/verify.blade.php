@@ -188,5 +188,6 @@
     }));
     load();
     loadFormConfig();
+    setInterval(load, 10000);
 </script>
 @endpush

@@ -82,7 +82,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js"></script>
+<script src="{{ asset('js/qrcode.min.js') }}"></script>
 <script>
     const palette = ['#4f46e5','#16a34a','#0ea5e9','#d97706','#db2777','#7c3aed','#0d9488','#dc2626'];
     let meeting = {}, qr = null, lastToken = null, seatsDirty = false, durationDirty = false;
