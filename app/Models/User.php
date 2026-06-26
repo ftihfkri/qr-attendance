@@ -14,11 +14,16 @@ class User extends Authenticatable
         'username',
         'password',
         'role',
+        'approved',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+    ];
+
+    protected $casts = [
+        'approved' => 'boolean',
     ];
 
     public function isAdmin(): bool

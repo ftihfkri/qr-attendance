@@ -28,7 +28,8 @@
             <table class="min-w-full border border-gray-300 text-sm">
                 <thead class="bg-gray-100"><tr>
                     <th class="px-3 py-2 border text-left">ID</th><th class="px-3 py-2 border text-left">Username</th>
-                    <th class="px-3 py-2 border text-left">Role</th><th class="px-3 py-2 border text-left">Action</th>
+                    <th class="px-3 py-2 border text-left">Role</th><th class="px-3 py-2 border text-left">Status</th>
+                    <th class="px-3 py-2 border text-left">Action</th>
                 </tr></thead>
                 <tbody id="usersBody"></tbody>
             </table>
@@ -45,13 +46,28 @@
     async function loadUsers() {
         const res = await window.apiFetch('/admin/users/list');
         const { data } = await res.json();
-        document.getElementById('usersBody').innerHTML = data.map(u => `<tr>
+        document.getElementById('usersBody').innerHTML = data.map(u => `<tr class="${u.approved ? '' : 'bg-amber-50'}">
             <td class="px-3 py-2 border">${u.id}</td>
             <td class="px-3 py-2 border">${esc(u.username)}</td>
             <td class="px-3 py-2 border">${esc(u.role)}</td>
-            <td class="px-3 py-2 border"><button data-id="${u.id}" data-name="${esc(u.username)}" class="del text-red-500 hover:underline">Delete</button></td>
+            <td class="px-3 py-2 border">${u.approved
+                ? '<span class="text-green-600 text-xs font-semibold">✓ Approved</span>'
+                : '<span class="text-amber-700 text-xs font-semibold">⏳ Pending</span>'}</td>
+            <td class="px-3 py-2 border whitespace-nowrap">
+                ${u.approved ? '' : `<button data-id="${u.id}" data-name="${esc(u.username)}" class="appr text-green-600 hover:underline mr-3">Approve</button>`}
+                <button data-id="${u.id}" data-name="${esc(u.username)}" class="del text-red-500 hover:underline">Delete</button>
+            </td>
         </tr>`).join('');
         document.querySelectorAll('.del').forEach(b => b.addEventListener('click', () => del(b.dataset.id, b.dataset.name)));
+        document.querySelectorAll('.appr').forEach(b => b.addEventListener('click', () => approve(b.dataset.id, b.dataset.name)));
+    }
+
+    async function approve(id, name) {
+        const res = await window.apiFetch('/admin/users/' + id + '/approve', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) { showMsg(data.message || 'Failed to approve', false); return; }
+        showMsg(`Approved '${name}'.`, true);
+        loadUsers();
     }
 
     document.getElementById('saveBtn').addEventListener('click', async () => {

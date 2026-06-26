@@ -71,6 +71,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin/users', [UserController::class, 'index']);
         Route::get('/admin/users/list', [UserController::class, 'list']);
         Route::post('/admin/users', [UserController::class, 'store']);
+        Route::post('/admin/users/{id}/approve', [UserController::class, 'approve'])->whereNumber('id');
         Route::delete('/admin/users/{id}', [UserController::class, 'destroy']);
     });
 });

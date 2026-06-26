@@ -25,6 +25,11 @@ class AuthController extends Controller
         ]);
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            // Self-registered accounts stay locked out until an admin approves them.
+            if (!Auth::user()->approved) {
+                Auth::logout();
+                return back()->withErrors(['username' => 'Your account is awaiting admin approval.'])->onlyInput('username');
+            }
             $request->session()->regenerate();
             return redirect()->intended('/admin');
         }
@@ -45,7 +50,8 @@ class AuthController extends Controller
         return view('auth.register');
     }
 
-    // Public self-registration -> always creates a 'staff' account.
+    // Public self-registration -> creates a PENDING 'staff' account that cannot
+    // log in until an admin approves it on the Users page.
     public function register(Request $request)
     {
         $data = $request->validate([
@@ -57,8 +63,9 @@ class AuthController extends Controller
             'username' => $data['username'],
             'password' => Hash::make($data['password']),
             'role'     => 'staff',
+            'approved' => false,
         ]);
 
-        return redirect('/login')->with('status', 'Account created. You can now log in.');
+        return redirect('/login')->with('status', 'Account requested. An admin must approve it before you can log in.');
     }
 }
