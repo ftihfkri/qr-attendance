@@ -11,7 +11,10 @@
                 <span id="votingStatus" class="text-xs text-slate-500">Loading…</span>
             </div>
         </div>
-        <a href="/admin" class="bg-gray-200 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">← Dashboard</a>
+        <div class="flex flex-wrap gap-2 items-center">
+            <a id="stationLink" href="#" target="_blank" class="bg-emerald-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm hidden">Open voting station ↗</a>
+            <a href="/admin" class="bg-gray-200 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-300 text-sm">← Dashboard</a>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -31,22 +34,21 @@
             <!-- Voting window -->
             <div class="bg-white p-5 rounded-lg shadow">
                 <h2 class="text-lg font-semibold mb-3">2 · Voting Window</h2>
-                <div class="grid grid-cols-2 gap-3 items-end mb-4">
-                    <div>
+                <div class="flex flex-wrap gap-3 items-end mb-4">
+                    <div class="flex-1 min-w-[8rem]">
                         <label class="block text-xs text-gray-600 mb-1">Seats — top-N win &amp; each voter picks N</label>
                         <input id="seats" type="number" min="1" value="1" class="w-full p-2 border border-gray-300 rounded">
                     </div>
-                    <div>
+                    <div class="flex-1 min-w-[8rem]">
                         <label class="block text-xs text-gray-600 mb-1">Timer (minutes, optional)</label>
                         <input id="duration" type="number" min="1" placeholder="e.g. 15" class="w-full p-2 border border-gray-300 rounded">
                     </div>
+                    <button id="saveBtn" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 text-sm">Save seats/timer</button>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <button id="openBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">▶ Open Voting &amp; Display</button>
+                    <button id="openBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">▶ Open Voting</button>
                     <button id="closeBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm hidden">■ Close Voting</button>
-                    <button id="saveBtn" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 text-sm">Save seats/timer</button>
                     <a id="liveLink" href="#" target="_blank" class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 text-sm hidden">Open live page ↗</a>
-                    <a id="stationLink" href="#" target="_blank" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 text-sm hidden">Open voting station ↗</a>
                 </div>
                 <p id="autoClose" class="text-xs text-gray-500 mt-2"></p>
                 <div id="voteMsg" class="text-sm mt-2 min-h-5"></div>
@@ -70,7 +72,7 @@
                 <div id="resultBars" class="space-y-3"></div>
                 <div id="winnerBanner" class="hidden mt-4 bg-green-50 border border-green-300 rounded-lg px-4 py-3 text-sm text-green-800"></div>
                 <div class="mt-4 pt-3 border-t flex flex-wrap items-center justify-between gap-2">
-                    <button id="restartBtn" class="bg-amber-100 text-amber-800 text-xs px-3 py-1.5 rounded hover:bg-amber-200 font-medium">♻ Restart voting (clear votes, keep QR)</button>
+                    <button id="restartBtn" class="bg-amber-100 text-amber-800 text-xs px-3 py-1.5 rounded hover:bg-amber-200 font-medium">♻ Clear votes (keep candidates &amp; QR)</button>
                     <button id="clearBtn" class="text-red-500 text-xs hover:underline">Clear election (start fresh)</button>
                 </div>
             </div>
@@ -132,9 +134,8 @@
         if (res.ok && data.meeting) {
             meeting = data.meeting;
             seatsDirty = false; // saved — let the poll sync the box again
-            if (action === 'open' && meeting.vote_token) {
-                window.open(window.location.origin + '/vote/' + meeting.vote_token + '?display=1', '_blank');
-            }
+            // Opening voting no longer auto-opens the display — use "Open live page"
+            // or "Open voting station" when you actually want a screen up.
         }
         await loadResults();
     }
@@ -233,7 +234,7 @@
 
     // ---- Restart voting: clear votes only, keep the same QR + candidates ----
     document.getElementById('restartBtn').addEventListener('click', async () => {
-        if (!confirm('Restart voting? This clears ALL current votes so everyone can vote again — but keeps the candidates and the SAME QR code. Use this if voting was started by mistake.')) return;
+        if (!confirm('Clear all current votes? This wipes every vote so members can vote again, but keeps the candidates and the SAME QR code. Voting status is left as-is — it does not open or close voting.')) return;
         const res = await window.apiFetch('/admin/election/reset-votes', { method: 'POST' });
         const data = await res.json();
         const msg = document.getElementById('voteMsg');
