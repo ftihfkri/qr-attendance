@@ -25,6 +25,7 @@ class ElectionController extends Controller
             'voting_active'   => $m->isVotingOpen(),
             'voting_finished' => $m->votingFinished(),
             'vote_seats'      => (int) $m->vote_seats,
+            'vote_duration_min' => $m->vote_duration_min ? (int) $m->vote_duration_min : null,
             'vote_starts_at'  => optional($m->vote_starts_at)->format('Y-m-d\TH:i'),
             'vote_ends_at'    => optional($m->vote_ends_at)->format('Y-m-d\TH:i'),
         ];
@@ -126,9 +127,6 @@ class ElectionController extends Controller
 
         $m = Meeting::current();
 
-        if (!$m->vote_token) {
-            $m->vote_token = Meeting::generateVoteToken();
-        }
         if (!empty($data['vote_seats'])) {
             $m->vote_seats = $data['vote_seats'];
         }
@@ -137,18 +135,19 @@ class ElectionController extends Controller
             if ($m->candidates()->count() < 1) {
                 return response()->json(['status' => 'error', 'message' => 'Add at least one candidate before opening voting.'], 422);
             }
-            $m->voting_open    = true;
-            $m->vote_starts_at = now();
-            $m->vote_ends_at   = !empty($data['duration_min'])
-                ? now()->addMinutes((int) $data['duration_min'])
-                : null;
+            // The QR/token is created only now — opening voting, not saving settings.
+            if (!$m->vote_token) {
+                $m->vote_token = Meeting::generateVoteToken();
+            }
+            $m->voting_open       = true;
+            $m->vote_starts_at    = now();
+            $m->vote_duration_min = !empty($data['duration_min']) ? (int) $data['duration_min'] : null;
+            $m->vote_ends_at      = $m->vote_duration_min ? now()->addMinutes($m->vote_duration_min) : null;
         } elseif ($data['action'] === 'close') {
             $m->voting_open  = false;
             $m->vote_ends_at = $m->vote_ends_at ?? now();
-        } else { // update
-            if (!empty($data['duration_min'])) {
-                $m->vote_ends_at = now()->addMinutes((int) $data['duration_min']);
-            }
+        } else { // update — save the SETTINGS only. No token, no open, no end-time.
+            $m->vote_duration_min = !empty($data['duration_min']) ? (int) $data['duration_min'] : null;
         }
 
         $m->save();
@@ -190,11 +189,12 @@ class ElectionController extends Controller
         Vote::where('meeting_id', $m->id)->delete();
         Candidate::where('meeting_id', $m->id)->delete();
 
-        $m->voting_open    = false;
-        $m->vote_token     = null;
-        $m->vote_starts_at = null;
-        $m->vote_ends_at   = null;
-        $m->vote_seats     = 1;
+        $m->voting_open       = false;
+        $m->vote_token        = null;
+        $m->vote_starts_at    = null;
+        $m->vote_ends_at      = null;
+        $m->vote_duration_min = null;
+        $m->vote_seats        = 1;
         $m->save();
 
         return response()->json([

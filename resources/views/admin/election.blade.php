@@ -85,7 +85,7 @@
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js"></script>
 <script>
     const palette = ['#4f46e5','#16a34a','#0ea5e9','#d97706','#db2777','#7c3aed','#0d9488','#dc2626'];
-    let meeting = {}, qr = null, lastToken = null, seatsDirty = false;
+    let meeting = {}, qr = null, lastToken = null, seatsDirty = false, durationDirty = false;
     function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
     // ---- Candidate pool search ----
@@ -133,7 +133,7 @@
         msg.textContent = data.message || ''; msg.className = 'text-sm mt-2 ' + (res.ok ? 'text-green-600' : 'text-red-600');
         if (res.ok && data.meeting) {
             meeting = data.meeting;
-            seatsDirty = false; // saved — let the poll sync the box again
+            seatsDirty = false; durationDirty = false; // saved — let the poll sync the boxes again
             // Opening voting no longer auto-opens the display — use "Open live page"
             // or "Open voting station" when you actually want a screen up.
         }
@@ -147,6 +147,7 @@
     // and persist the value as soon as the user leaves the field so it sticks.
     const seatsInput = document.getElementById('seats');
     seatsInput.addEventListener('input', () => { seatsDirty = true; });
+    document.getElementById('duration').addEventListener('input', () => { durationDirty = true; });
     seatsInput.addEventListener('change', () => {
         if ((parseInt(seatsInput.value) || 0) < 1) seatsInput.value = 1;
         setVoting('update');
@@ -195,6 +196,7 @@
         document.getElementById('liveLink').classList.toggle('hidden', !m.vote_token);
         document.getElementById('stationLink').classList.toggle('hidden', !m.vote_token);
         if (!seatsDirty && document.activeElement?.id !== 'seats') document.getElementById('seats').value = m.vote_seats || 1;
+        if (!durationDirty && document.activeElement?.id !== 'duration') document.getElementById('duration').value = m.vote_duration_min || '';
         document.getElementById('autoClose').textContent =
             (m.vote_ends_at && m.voting_active) ? 'Auto-closes at ' + m.vote_ends_at.replace('T', ' ') : '';
 
@@ -249,7 +251,7 @@
         const data = await res.json();
         const msg = document.getElementById('voteMsg');
         msg.textContent = data.message || ''; msg.className = 'text-sm mt-2 ' + (res.ok ? 'text-green-600' : 'text-red-600');
-        if (res.ok) { document.getElementById('duration').value = ''; document.getElementById('seats').value = 1; seatsDirty = false; }
+        if (res.ok) { document.getElementById('duration').value = ''; document.getElementById('seats').value = 1; seatsDirty = false; durationDirty = false; }
         await loadResults(); await loadPool();
     });
 

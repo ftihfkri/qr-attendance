@@ -22,6 +22,7 @@ class Meeting extends Model
         'vote_seats',
         'vote_starts_at',
         'vote_ends_at',
+        'vote_duration_min',
         'form_config',
     ];
 
