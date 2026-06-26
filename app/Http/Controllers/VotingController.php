@@ -16,7 +16,8 @@ class VotingController extends Controller
     }
 
     // Decide whether a koperasi_id may cast a vote in this meeting.
-    // Returns [status, message] where status ∈ ok|closed|not_attendee|is_candidate|already_voted
+    // Returns [status, message] where status ∈ ok|closed|not_attendee|already_voted
+    // Candidates are checked-in members too, so they may vote like anyone else.
     private function eligibility(Meeting $m, string $koperasiId): array
     {
         if (!$m->isVotingOpen()) {
@@ -25,10 +26,6 @@ class VotingController extends Controller
         $attended = Attendance::where('meeting_id', $m->id)->where('koperasi_id', $koperasiId)->exists();
         if (!$attended) {
             return ['not_attendee', 'This Nombor Ahli has not checked in to the meeting, so it cannot vote.'];
-        }
-        $isCandidate = Candidate::where('meeting_id', $m->id)->where('koperasi_id', $koperasiId)->exists();
-        if ($isCandidate) {
-            return ['is_candidate', 'Candidates cannot vote.'];
         }
         $voted = Vote::where('meeting_id', $m->id)->where('voter_koperasi_id', $koperasiId)->exists();
         if ($voted) {
@@ -159,9 +156,8 @@ class VotingController extends Controller
             return response()->json(['status' => 'error'], 404);
         }
 
-        $candidateIds = $meeting->candidates()->pluck('koperasi_id');
+        // Everyone checked in may vote (candidates included).
         $eligible = Attendance::where('meeting_id', $meeting->id)
-            ->whereNotIn('koperasi_id', $candidateIds)
             ->distinct('koperasi_id')
             ->count('koperasi_id');
 

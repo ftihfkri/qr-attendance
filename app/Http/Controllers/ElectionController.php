@@ -30,12 +30,10 @@ class ElectionController extends Controller
         ];
     }
 
-    // Number of attendees eligible to vote = checked-in attendees who are NOT candidates.
+    // Number of attendees eligible to vote = everyone checked in (candidates included).
     private function eligibleCount(Meeting $m): int
     {
-        $candidateIds = $m->candidates()->pluck('koperasi_id');
         return Attendance::where('meeting_id', $m->id)
-            ->whereNotIn('koperasi_id', $candidateIds)
             ->distinct('koperasi_id')
             ->count('koperasi_id');
     }

@@ -62,7 +62,7 @@
                 <div class="text-xl font-bold mb-4 text-emerald-800">Scan to Vote</div>
                 <div id="qrcode" class="flex justify-center mb-3"></div>
                 <div class="text-[11px] text-slate-400 break-all">{{ $voteUrl }}</div>
-                <div class="mt-3 text-sm text-slate-500 leading-relaxed">Must be checked in · Candidates can’t vote · {{ $seats > 1 ? 'Pick ' . $seats . ' each' : 'One vote each' }}</div>
+                <div class="mt-3 text-sm text-slate-500 leading-relaxed">Must be checked in · {{ $seats > 1 ? 'Pick ' . $seats . ' each' : 'One vote each' }}</div>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-white/10 border border-white/15 rounded-2xl p-4 text-center">
